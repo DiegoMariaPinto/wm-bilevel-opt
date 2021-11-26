@@ -9,15 +9,7 @@ import numpy as np
 np.random.seed(0)
 
 # Dataset Load
-network_data = pd.read_excel('WM_network_instance.xlsx')
 
-def create_instance(network_data, NF,NC,ND):
-
-
-
-    # inst_dist is a dictionary of distances between all instance nodes
-    # inst_time is a dictionary of travel time between all instance nodes
-    return inst_dist, inst_time
 
 
 H = ['S', 'M', 'L']
