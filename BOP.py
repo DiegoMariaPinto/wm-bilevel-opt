@@ -43,17 +43,23 @@ random_cv = np.random.randint(30,60,NV).tolist() # vehicles capacities
 cv = {l: random_cv[l] for l in V}
 random_T = np.random.randint(3,8,NV).tolist() # maximum servicing times per tour (electic or combustion)
 T = {l: random_T[l] for l in V}
+random_P = np.random.randint(50,100,NF).tolist() # maximum penalty for a facility
+P = {j: random_P[j] for j in F}
 a_matrix = {(k,l) : 1 for (k,l) in itertools.product(D,V)} # trucks distribution across the depots
 #########################
 
 # demand vector d= ?
 d = {} # ?
-
+# gamma vector of gamma_1,2,3
 params = []
+gamma = {'1':0.3,'2':0.3,'3':0.4}
 
-def SP_model(params, solver, gap, time_limit):
+def SP_model(params, gamma, OP_vars,
+             solver, gap, time_limit):
 
     m = Model('SP')
+
+    z = OP_vars['z']
 
     # Variables
 
@@ -68,6 +74,14 @@ def SP_model(params, solver, gap, time_limit):
 
     n = {(j): m.addVar(lb=0, ub=1, vtype=GRB.CONTINUOUS, obj=None, name='n({})'.format(j))
          for j in F}
+
+    # obj.fun. linearization vars
+
+    g = {(a,b,l,s): m.addVar(lb=0, vtype=GRB.CONTINUOUS, obj='None', name ='g({},{},{},{})'.format(a,b,l,s))
+         for a in N for b in N for l in V for s in S}
+
+    u = {(a,b,s): m.addVar(lb=0,ub=1, vtype=GRB.BINARY, obj='None', name = 'u({},{},{})'.format(a,b,s))
+         for a in N for b in N for s in S}
 
     # Constraints
     # (1)
@@ -86,6 +100,32 @@ def SP_model(params, solver, gap, time_limit):
     # (5)
     for s in S:
         m.addConstr(quicksum(x[i, s] for i in C) <= quicksum(r[j, h, s] for j in F for h in H))
+
+    # linearization related constraints
+
+    # (21): g var lb is included in var definition
+    # (22)
+    for a in N:
+        for b in N:
+            for l in V:
+                for s in S:
+                    m.addConstr(g[a,b,l,s] >= z[l,a,b] - u[a,b,s])
+    # (23)
+    for a in N:
+        for b in N:
+            for s in S:
+                m.addConstr(u[a,b,s] >= x[a,s] + x[b,s] - 1)
+    # (24)
+    for a in N:
+        for b in N:
+            for s in S:
+                m.addConstr(u[a,b,s] <= (x[a,s] + x[b,s])/2)
+
+    # objective function
+
+    m.setObjective(gamma['1']*quicksum(z[l,a,b]*em[a,b] for a in N for b in N for l in V) +
+                   gamma['2']*quicksum(n[j]*P[j] for j in F) +
+                   gamma['3']*quicksum(g[a,b,l,s] for a in N for b in N for l in V for s in S))
 
     ################# solve the formulation ####################
 
@@ -150,6 +190,10 @@ def OP_model(params, SP_vars, solver, gap, time_limit):
     z = {(l,a,b): m.addVar(lb=0, ub=1, vtype=GRB.BINARY, obj=None, name='z({},{},{})'.format(l, a, b))
          for l in V for a in N for b in N}
 
+    # obj.fun. linearization var
+
+    w = m.addVar(vtype=GRB.CONTINUOUS, obj=1, name = 'w')
+
     # Constraints
     # (7)
     for k in D:
@@ -195,6 +239,14 @@ def OP_model(params, SP_vars, solver, gap, time_limit):
     # 18)
     for l in V:
         m.addConstr(quicksum(t[a,b]*z[l,a,b] for a in N for b in N if a != b) <= T[l])
+
+    # linearization related constraints
+    # (27)
+    for k in D:
+        for k_1 in D:
+            if k_1 != k:
+                m.addConstr( w >= quicksum(z[l,a,b]*t[a,b] for a in N for b in N for l in V if a[k,l]   == 1) -
+                                  quicksum(z[l,a,b]*t[a,b] for a in N for b in N for l in V if a[k_1,l] == 1))
 
     ################# solve the formulation ####################
 
