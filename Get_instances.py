@@ -102,12 +102,12 @@ def get_ODbyOSM(nodes):
             if i != j:
                 response = getPath(long1, lat1, long2, lat2)
                 dis = round(getDistance(response) / 1000, 2)
-                dur = round((getTime(response) / 60) * (0.9), 2)
+                dur = round((getTime(response) / 60) * (1.2), 2)
             else:
                 dis = 0
                 dur = 0
 
-            disdur[(id_from, id_to)] = {'distance': dis, 'duation': dur}
+            disdur[(id_from, id_to)] = {'distance': dis, 'duration': dur}
             inst_data.append(
                 [id_from_name, id_to_name, id_from, ntype_from, id_to, ntype_to, lat2, long2, lat1, long1, dis,
                  dur])
@@ -217,7 +217,7 @@ if __name__ == '__main__':
 
     # dict_loaded = load_instance('disdur_inst_#1.json')
 
-    display_map = False
+    display_map = True
     if display_map:
         nodes.lat = pd.to_numeric(nodes.lat)
         nodes.long = pd.to_numeric(nodes.long)
