@@ -26,10 +26,10 @@ V = list(range(NV))
 
 ########################
 # SP specific parameters
-H = ['Small', 'Medium', 'Large']
-CAPH = {'Small':500, 'Medium':1000, 'Large':1500}
-EM = {'Small':20, 'Medium':25, 'Large':30} # test different shapes
-FCost = {'Small':100, 'Medium':150, 'Large':180}
+H = [1,2,3] # 1 = S, 2 = M, 3 = L
+CAPH = {1:500, 2:1000, 3:1500}
+EM = {1:20, 2:25, 3:30} # test different shapes
+FCost = {1:100, 2:150, 3:180}  # facility installation cost
 capf  = {(j,h): CAPH[h] for (j, h) in itertools.product(F,H)}
 c = {(j,h): FCost[h] for (j, h) in itertools.product(F,H)}
 B = 3000 # budjet for facilities opening  # 1600
@@ -37,7 +37,7 @@ em_f = {(j,h):EM[h] for (j,h) in itertools.product(F,H)}
 NS = NF # upper bound of the number of clusters
 S = list(range(NS))
 # sc is the safe capacity for each facility j of size h
-sc = {(j,h): 0.2*CAPH[h] for (j,h) in itertools.product(F,H)}
+sc = {(j,h): 0.3*CAPH[h] for (j,h) in itertools.product(F,H)}
 
 #SP_params = {'H':H, 'CAPH' = CAPH, etc..}
 #########################
@@ -45,13 +45,17 @@ sc = {(j,h): 0.2*CAPH[h] for (j,h) in itertools.product(F,H)}
 t  = {(a,b):disdur[(a,b)]['duration'] for (a,b) in itertools.product(N,N)}
 truck_em_coeff = 1.2
 em_t = {(a,b): truck_em_coeff*disdur[(a,b)]['distance'] for (a,b) in itertools.product(N,N)}
-random_cv = np.random.randint(30,60,NV).tolist() # vehicles capacities
+random_cv = np.random.randint(2500,4500,NV).tolist() # vehicles capacities
 cv = {l: random_cv[l] for l in V}
 random_T = np.random.randint(6,9,NV).tolist() # maximum servicing times per tour (electic or combustion) 3,8
 T = {l: random_T[l] for l in V}
 random_P = np.random.randint(50,100,NF).tolist() # maximum penalty for a facility
 P = {j: random_P[j] for j in F}
-a_matrix = {(k,l) : 1 for (k,l) in itertools.product(D,V) if k != l} # trucks distribution across the depots
+
+a_matrix = {(k,l) : 1 for (k,l) in itertools.product(D,V) if k-D[0] == l-V[0]} # trucks distribution across the depots
+for (k,l) in itertools.product(D,V):
+    if k-D[0] != l-V[0]:
+        a_matrix[(k,l)] = 0
 # a_k_l == 1 if truck l start its tour from depot k
 
 # OP_params = {....}
@@ -65,37 +69,38 @@ d = {i: random_d[i-NF] for i in C}
 params = []
 gamma = {'1':0.3,'2':0.3,'3':0.4}
 
-def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP = False):
+def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP = False, SP_vars_to_fix = None):
 
     m = Model('SP')
 
+    # Variables
     if get_single_sol_SP:
         z = None
+        x = {(i, s): m.addVar(lb=0, ub=1, vtype=GRB.BINARY, name='x({},{})'.format(i, s))
+             for i in C for s in S}
+        r = {(j, h, s): m.addVar(lb=0, ub=1, vtype=GRB.BINARY, name='r({},{},{})'.format(j, h, s))
+             for j in F for h in H for s in S}
+        y = {(j): m.addVar(lb=0, ub=1, vtype=GRB.BINARY, name='y({})'.format(j))
+             for j in F}
+        n = {(j): m.addVar(lb=0, ub=1, vtype=GRB.CONTINUOUS, name='n({})'.format(j))
+             for j in F}
     else:
         z = OP_vars['z']
+        x = {(i, s): m.addVar(lb=SP_vars_to_fix['x'][i,s], ub=SP_vars_to_fix['x'][i,s], vtype=GRB.BINARY, name='x({},{})'.format(i, s))
+             for i in C for s in S}
+        r = {(j, h, s): m.addVar(lb=SP_vars_to_fix['r'][j,h,s], ub=SP_vars_to_fix['r'][j,h,s], vtype=GRB.BINARY, name='r({},{},{})'.format(j, h, s))
+             for j in F for h in H for s in S}
+        y = {(j): m.addVar(lb=SP_vars_to_fix['y'][j], ub=SP_vars_to_fix['y'][j], vtype=GRB.BINARY, name='y({})'.format(j))
+             for j in F}
+        n = {(j): m.addVar(lb=SP_vars_to_fix['n'][j], ub=SP_vars_to_fix['n'][j], vtype=GRB.CONTINUOUS, name='n({})'.format(j))
+             for j in F}
 
-    # Variables
+        # obj.fun. linearization vars
 
-    x = {(i, s): m.addVar(lb=0, ub=1, vtype=GRB.BINARY, name='x({},{})'.format(i, s))
-         for i in C for s in S}
-
-    r = {(j, h, s): m.addVar(lb=0, ub=1, vtype=GRB.BINARY, name='r({},{},{})'.format(j, h, s))
-         for j in F for h in H for s in S}
-
-    y = {(j): m.addVar(lb=0, ub=1, vtype=GRB.BINARY, name='y({})'.format(j))
-         for j in F}
-
-    n = {(j): m.addVar(lb=0, ub=1, vtype=GRB.CONTINUOUS, name='n({})'.format(j))
-         for j in F}
-
-    # obj.fun. linearization vars
-    if not get_single_sol_SP:
         g = {(a,b,l,s): m.addVar(lb=0, vtype=GRB.CONTINUOUS, name ='g({},{},{},{})'.format(a,b,l,s))
              for a in C for b in C for l in V for s in S}
-
         u = {(a,b,s): m.addVar(lb=0,ub=1, vtype=GRB.BINARY, name = 'u({},{},{})'.format(a,b,s))
              for a in C for b in C for s in S}
-
 
     # Constraints
     # (1)
@@ -143,9 +148,6 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP = Fa
     # objective function
 
     if get_single_sol_SP:
-        # risolvo con un pezzo di fo ed i vincoli da 1 a 6, prendo le y e risolvo il follower.
-        # ora provo a valorizzare la fo del leader
-        # cambiando eursitcamente le y e valutando il risultato in termini di fo
         m.setObjective(gamma['1'] * quicksum(r[j, h, s] * em_f[j, h] for j in F for h in H for s in S) +
                        gamma['2'] * quicksum(n[j] * P[j] for j in F))
     else:
@@ -153,7 +155,6 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP = Fa
                        gamma['1']*quicksum(r[j,h,s]*em_f[j,h] for j in F for h in H for s in S) +
                        gamma['2']*quicksum(n[j]*P[j] for j in F) +
                        gamma['3']*quicksum(g[a,b,l,s] for a in C for b in C for l in V for s in S))
-
 
 
     ################# solve the formulation ####################
@@ -193,7 +194,7 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP = Fa
             if var.VarName.startswith('x'):
                 x_opt_dict[eval(var.VarName[2:-1])] = var.x
             if var.VarName.startswith('r'):
-                r_opt_dict[var.VarName[2:-1]] = var.x
+                r_opt_dict[eval(var.VarName[2:-1])] = var.x
             if var.VarName.startswith('y'):
                 y_opt_dict[eval(var.VarName[2:-1])] = var.x
             if var.VarName.startswith('n'):
@@ -227,6 +228,7 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0 = None):
     else:
         y = SP_vars['y']
 
+
     # OP Variables
 
     h = {(l, a): m.addVar(lb=0, ub=1, vtype=GRB.BINARY, name='h({},{})'.format(l, a))
@@ -240,50 +242,50 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0 = None):
     w = m.addVar(vtype=GRB.CONTINUOUS, obj=1, name = 'w')
 
     # Constraints
-    # (7)
+    # (8)
     for k in D:
         for l in V:
-            m.addConstr(quicksum(h[l, j] for j in F) == quicksum(z[l,k,i] for k in D for i in C), name='C_7_({},{})'.format(k,l))
-    # (8)
-    for i in C:
-        m.addConstr(quicksum(h[l,i] for l in V) == 1, name='C_8_({})'.format(i))
+            m.addConstr(quicksum(h[l, j] for j in F) == quicksum(z[l,k,i] for k in D for i in C), name='C_8_({},{})'.format(k,l))
     # (9)
-    for l in V:
-        m.addConstr(quicksum(h[l,k] for k in D) == 1, name='C_9_({})'.format(l))
+    for i in C:
+        m.addConstr(quicksum(h[l,i] for l in V) == 1, name='C_9_({})'.format(i))
     # (10)
     for l in V:
-        m.addConstr(quicksum(h[l,i]*d[i] for i in C) <= cv[l], name='C_10_({})'.format(l))
-    # 11)
+        m.addConstr(quicksum(h[l,k] for k in D) == 1, name='C_10_({})'.format(l))
+    # (11)
+    for l in V:
+        m.addConstr(quicksum(h[l,i]*d[i] for i in C) <= cv[l], name='C_11_({})'.format(l))
+    # 12)
     for k in D:
         for l in V:
-            m.addConstr(quicksum(z[l,k,i] for i in C) <= a_matrix[k,l], name='C_11_({},{})'.format(k,l))
-    # 12)
-    for j in F:
-        for l in V:
-            m.addConstr(quicksum(z[l,i,j] for i in C) <= y[j] , name='C_12_({},{})'.format(j,l))
+            m.addConstr(quicksum(z[l,k,i] for i in C) <= a_matrix[k,l], name='C_12_({},{})'.format(k,l))
     # 13)
     for j in F:
         for l in V:
-            m.addConstr(quicksum(z[l,j,i] for i in C) == 0, name='C_13_({},{})'.format(j,l))
+            m.addConstr(quicksum(z[l,i,j] for i in C) <= y[j] , name='C_13_({},{})'.format(j,l))
     # 14)
     for j in F:
         for l in V:
-            m.addConstr(quicksum(z[l,i,j] for i in C) <= h[l,j], name='C_14_({},{})'.format(j,l))
+            m.addConstr(quicksum(z[l,j,i] for i in C) == 0, name='C_14_({},{})'.format(j,l))
     # 15)
     for j in F:
         for l in V:
-            m.addConstr(quicksum(z[l,j,k] for k in D) == quicksum(z[l,i,j] for i in C), name='C_15_({},{})'.format(j,l))
+            m.addConstr(quicksum(z[l,i,j] for i in C) <= h[l,j], name='C_15_({},{})'.format(j,l))
     # 16)
-    for i in C:
+    for j in F:
         for l in V:
-            m.addConstr(quicksum(z[l,i_1,i] for i_1 in C+D if i != i_1) == quicksum(z[l,i,i_1] for i_1 in C if i != i_1) + quicksum(z[l,i,j] for j in F), name='C_16_({},{})'.format(i,l))
+            m.addConstr(quicksum(z[l,j,k] for k in D) == quicksum(z[l,i,j] for i in C), name='C_16_({},{})'.format(j,l))
     # 17)
     for i in C:
         for l in V:
-            m.addConstr(quicksum(z[l,i,i_1] for i_1 in C if i != i_1) <= 1, name='C_17_({},{})'.format(i,l))
+            m.addConstr(quicksum(z[l,i_1,i] for i_1 in C+D if i != i_1) == quicksum(z[l,i,i_1] for i_1 in C if i != i_1) + quicksum(z[l,i,j] for j in F), name='C_17_({},{})'.format(i,l))
     # 18)
+    for i in C:
+        for l in V:
+            m.addConstr(quicksum(z[l,i,i_1] for i_1 in C if i != i_1) <= 1, name='C_18_({},{})'.format(i,l))
+    # 19)
     for l in V:
-        m.addConstr(quicksum(t[a,b]*z[l,a,b] for a in N for b in N if a != b) <= T[l], name='C_18_({})'.format(l))
+        m.addConstr(quicksum(t[a,b]*z[l,a,b] for a in N for b in N if a != b) <= T[l], name='C_19_({})'.format(l))
 
     # linearization related constraints
     # (27)
@@ -375,29 +377,86 @@ def get_feasible_sol_SP(F,H,FCost,B):
     return y, y_size, y_totcost
 
 
-if __name__ == '__main__':
-    # y_0, y_0_size, y_0_totcost = get_feasible_sol_SP(F,H,FCost,B)
-    first_try = False
-
-    time_limit = 60
-    gap_tol = 0.05 # 1e-2
-
-    OP_opt_vars = None
+def heuristic():
 
     print('########################### \n FIRST ATTEMPT TO SOLVE SP \n########################### ')
     get_single_sol_SP = True
-    SP_opt_vars_start, SP_optval_start, df_vars_list_start = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP )
+    OP_opt_vars = None
+    SP_opt_vars_start, SP_optval_start, df_vars_list_start = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP)
     get_single_sol_SP = False
 
     print('########################### \n FIRST ATTEMPT TO SOLVE OP \n########################### ')
     OP_opt_vars = OP_model(params, SP_opt_vars_start, gap_tol, time_limit, first_try)
 
     print('########################### \n SECOND ATTEMPT TO SOLVE SP \n########################### ')
-    SP_opt_vars_new, SP_optval_new, df_vars_list_new = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP)
+    SP_opt_vars, SP_optval, df_vars_list = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP)
+
+    y_k = SP_opt_vars['y']
+    n_k = SP_opt_vars['n']
 
 
 
+    return SP_optval
 
+
+if __name__ == '__main__':
+    # y_0, y_0_size, y_0_totcost = get_feasible_sol_SP(F,H,FCost,B)
+    first_try = False
+
+    time_limit = 60
+    gap_tol = 0.05 #1e-5
+
+    OP_opt_vars = None
+
+    print('########################### \n FIRST ATTEMPT TO SOLVE SP \n########################### ')
+    get_single_sol_SP = True
+    SP_opt_vars_init, SP_optval_start, df_vars_list_init = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP)
+    get_single_sol_SP = False
+
+    print('########################### \n FIRST ATTEMPT TO SOLVE OP \n###########################')
+    OP_opt_vars = OP_model(params, SP_opt_vars_init, gap_tol, time_limit, first_try)
+
+    print('########################### \n Evaluation of total SP objective value \n###########################')
+    SP_opt_vars, SP_optval, df_vars_list = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP, SP_opt_vars_init)
+
+
+    # Heuristic start:
+    x = SP_opt_vars['x']
+    y = SP_opt_vars['y']
+    n = SP_opt_vars['n']
+    r = SP_opt_vars['r']
+
+    dist = {(a, b): disdur[(a, b)]['duration'] for (a, b) in itertools.product(N, N)}
+
+    def get_closest_facility(j_0):
+        distances = {}
+        for j in F:
+            if j != j_0:
+                distances[j] = dist[(j_0,j)]
+        return max(distances, key=distances.get)
+
+    open_list = [r_var for r_var, value in r.items() if value == 1] # list of all (j,h,s) s.t. r[j,h,s] = 1
+
+    if max(n.values()) > 0: # at least one facility is using safety stock --> leader cost to decrease
+        ss_used_list = [(n_var, value) for n_var, value in n.items() if value > 0]  # list of all facilities j with n_j > 0
+        ss_used_list.sort(key=lambda x: x[1], reverse=True)  # list is sort in descending oreder w.r.t n_j
+        for elem in ss_used_list: # for each of these facilities where safaty stock is used (in descending oreder w.r.t n_j)
+            j = elem[0]
+            for s in S:
+                for h in H:
+                    if (j,h,s) in open_list and h != 3: # upgrade its size if possible
+                        r[j,h,s] = 0
+                        r[j,h+1,s] = 1
+                    else:                               # open the facility closest to j
+                        j_to_open = get_closest_facility(j)
+                        y[j_to_open] = 1
+                        r[j_to_open,1,s] = 1            # at its minimum size
+
+                        # --> passare la nuova y a OP ?
+
+
+    else: # cluster definition may be inefficient --> attempt to change facility distribution across clusters
+        print('ciao')
 
 
 
