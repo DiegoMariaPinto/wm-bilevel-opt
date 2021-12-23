@@ -116,7 +116,10 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP = Fa
     for i in C:
         for s in S:
             m.addConstr(x[i,s] <= quicksum(r[j,h,s] for j in F for h in H), name='C4_facility_to_cluster({},{})'.format(i, s))
-    # (5)
+    # (5) new
+    for j in F:
+        m.addConstr(n[j] <= quicksum(r[j,h,s] for s in S for h in H), name='C5_new_nj_iff_facility_is_open({})'.format(j))
+    # (5) old
     # for s in S:
     #     m.addConstr(quicksum(x[i, s] for i in C) <= quicksum(r[j, h, s] for j in F for h in H), name='C5_empty_cluster({})'.format(s))
 
@@ -150,6 +153,7 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP = Fa
     if get_single_sol_SP:
         m.setObjective(gamma['1'] * quicksum(r[j, h, s] * em_f[j, h] for j in F for h in H for s in S) +
                        gamma['2'] * quicksum(n[j] * P[j] for j in F))
+        # + quicksum(c[j, h] * r[j, h, s] for j in F for h in H for s in S))
     else:
         m.setObjective(gamma['1']*quicksum(z[l,a,b]*em_t[a,b] for a in N for b in N for l in V) +
                        gamma['1']*quicksum(r[j,h,s]*em_f[j,h] for j in F for h in H for s in S) +
@@ -287,6 +291,11 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0 = None):
     for l in V:
         m.addConstr(quicksum(t[a,b]*z[l,a,b] for a in N for b in N if a != b) <= T[l], name='C_19_({})'.format(l))
 
+    # 20? no loop over same node constraint:
+    for l in V:
+        for i in C:
+            m.addConstr(z[l, i, i] == 0, name='C_20_no_loop({})'.format(l))
+
     # linearization related constraints
     # (27)
     for k in D:
@@ -339,10 +348,19 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0 = None):
                 z_opt_dict[eval(var.VarName[2:-1])] = var.x
 
         vars_opt = pd.DataFrame.from_records(vars_opt, columns=["variable", "value"])
+        vars_opt.to_excel('risultati_SP.xlsx')
+
+        h_opt = vars_opt[vars_opt['variable'].str.contains("h", na=False)]
+        z_opt = vars_opt[vars_opt['variable'].str.contains("z", na=False)]
+
+        h_opt['value'].apply(pd.to_numeric).astype(int)
+        z_opt['value'].apply(pd.to_numeric).astype(int)
+
+        df_vars_list = [h_opt, z_opt]
 
         opt_vars = {'h': h_opt_dict, 'z': z_opt_dict}
 
-        return opt_vars
+        return opt_vars, df_vars_list
 
 # scorro le facility, inizialmente con la taglia + piccola e le apro fin quando ci è budget,
 # se avanza budjet ampio le taglie fin quando ci è buget con un nuova passata su quelle aperte,
@@ -377,47 +395,26 @@ def get_feasible_sol_SP(F,H,FCost,B):
     return y, y_size, y_totcost
 
 
-def heuristic():
-
-    print('########################### \n FIRST ATTEMPT TO SOLVE SP \n########################### ')
-    get_single_sol_SP = True
-    OP_opt_vars = None
-    SP_opt_vars_start, SP_optval_start, df_vars_list_start = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP)
-    get_single_sol_SP = False
-
-    print('########################### \n FIRST ATTEMPT TO SOLVE OP \n########################### ')
-    OP_opt_vars = OP_model(params, SP_opt_vars_start, gap_tol, time_limit, first_try)
-
-    print('########################### \n SECOND ATTEMPT TO SOLVE SP \n########################### ')
-    SP_opt_vars, SP_optval, df_vars_list = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP)
-
-    y_k = SP_opt_vars['y']
-    n_k = SP_opt_vars['n']
-
-
-
-    return SP_optval
-
 
 if __name__ == '__main__':
     # y_0, y_0_size, y_0_totcost = get_feasible_sol_SP(F,H,FCost,B)
     first_try = False
 
-    time_limit = 60
+    time_limit = 25
     gap_tol = 0.05 #1e-5
 
     OP_opt_vars = None
 
     print('########################### \n FIRST ATTEMPT TO SOLVE SP \n########################### ')
     get_single_sol_SP = True
-    SP_opt_vars_init, SP_optval_start, df_vars_list_init = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP)
+    SP_opt_vars_init, SP_optval_start, SP_vars_list_init = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP)
     get_single_sol_SP = False
 
     print('########################### \n FIRST ATTEMPT TO SOLVE OP \n###########################')
-    OP_opt_vars = OP_model(params, SP_opt_vars_init, gap_tol, time_limit, first_try)
+    OP_opt_vars, OP_vars_list_init = OP_model(params, SP_opt_vars_init, gap_tol, time_limit, first_try)
 
     print('########################### \n Evaluation of total SP objective value \n###########################')
-    SP_opt_vars, SP_optval, df_vars_list = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP, SP_opt_vars_init)
+    SP_opt_vars, SP_optval, _ = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP, SP_opt_vars_init)
 
 
     # Heuristic start:
@@ -425,6 +422,8 @@ if __name__ == '__main__':
     y = SP_opt_vars['y']
     n = SP_opt_vars['n']
     r = SP_opt_vars['r']
+
+    B_used = sum(c[j, h] * r[j, h, s] for j in F for h in H for s in S)
 
     dist = {(a, b): disdur[(a, b)]['duration'] for (a, b) in itertools.product(N, N)}
 
@@ -437,6 +436,8 @@ if __name__ == '__main__':
 
     open_list = [r_var for r_var, value in r.items() if value == 1] # list of all (j,h,s) s.t. r[j,h,s] = 1
 
+    ###################################################################
+    ## 1 step: enlarge size of open facilities using safety stock ##
     if max(n.values()) > 0: # at least one facility is using safety stock --> leader cost to decrease
         ss_used_list = [(n_var, value) for n_var, value in n.items() if value > 0]  # list of all facilities j with n_j > 0
         ss_used_list.sort(key=lambda x: x[1], reverse=True)  # list is sort in descending oreder w.r.t n_j
@@ -445,8 +446,20 @@ if __name__ == '__main__':
             for s in S:
                 for h in H:
                     if (j,h,s) in open_list and h != 3: # upgrade its size if possible
-                        r[j,h,s] = 0
-                        r[j,h+1,s] = 1
+                        if B_used + c[j, h+1] - c[j, h] <= B: # check if budjet is available
+                            r[j,h,s] = 0
+                            r[j,h+1,s] = 1
+                            B_used += c[j, h+1] - c[j, h]
+                            print('facility j = '+str(j)+' has been enlarged to size '+str(h+1))
+
+    ############################################################
+    ## 2 step: attempt to modify Y by closing or opening some ##
+    ## 2.1 step: computer capacity utilization of each open facility according to follower behaviour Z
+    # for elem in ss_used_list:
+
+
+
+
                     else:                               # open the facility closest to j
                         j_to_open = get_closest_facility(j)
                         y[j_to_open] = 1
