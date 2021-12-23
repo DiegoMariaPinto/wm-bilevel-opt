@@ -327,6 +327,8 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0=None):
     for l in V:
         m.addConstr(quicksum(z[l,a,b] for a in C for b in C) <= quicksum(h[l,a] for a in C) - 1, name='C_23_no_loops_over_clientset_({})'.format(l))
 
+    # frase per commit
+
     # 23)
     # for l in V:
     #     for a in D:
