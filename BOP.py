@@ -264,6 +264,7 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0=None):
     # (9)
     for i in C:
         m.addConstr(quicksum(h[l, i] for l in V) == 1, name='C_9_({})'.format(i))
+
     # (10)
     for l in V:
         m.addConstr(quicksum(h[l, k] for k in D) == 1, name='C_10_({})'.format(l))
@@ -313,7 +314,7 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0=None):
         for i in N:
             m.addConstr(z[l, i, i] == 0, name='C_20_no_loop({},{})'.format(l, i))
 
-    # New constraints bu Pizzari and Pinto in 23/12/21 binding z and h to behave
+    # New constraints by Pizzari and Pinto in 23/12/21 binding z and h to behave
     # 21)
     for l in V:
         for a in C:
