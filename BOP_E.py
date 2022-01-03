@@ -19,7 +19,7 @@ NC = 30  # number of clients
 ND = 5  # number of depots
 NV = 8  # number of vehicles
 # corresponding sets:
-F = list(range(NF))
+F = list(range(NF))  # facility list
 C = list(range(NF, NC + NF))
 D = list(range(NC + NF, ND + NC + NF))
 N = F + C + D
@@ -121,8 +121,7 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
         m.addConstr(quicksum(r[j, h, s] for s in S for h in H) == y[j], name='C2_one_size_only({})'.format(j))
     # (3)
     for s in S:
-        m.addConstr(quicksum(x[i, s] * d[i] for i in C) <= quicksum(
-            r[j, h, s] * capf[j, h] - (r[j, h, s] - n[j]) * sc[j, h] for j in F for h in H),
+        m.addConstr(quicksum(x[i, s] * d[i] for i in C) <= quicksum(r[j, h, s] * capf[j, h] - (r[j, h, s] - n[j]) * sc[j, h] for j in F for h in H),
                     name='C3_demand_to_cluster({})'.format(s))
     # (4)
     for i in C:
@@ -454,28 +453,82 @@ def get_feasible_sol_SP(F, H, FCost, B):
 
     return y, y_size, y_totcost
 
+def get_facility_load(OP_opt_vars, SP_opt_vars_init):
+
+    h = OP_opt_vars['h']
+    y = SP_opt_vars_init['y']
+
+    loads = {}
+    for l in V:
+        load = 0
+        for i in C:
+            load += h[(l, i)] * d[i]
+        loads[l] = load
+
+    j_load = {}
+    for j in F:
+        if y[j] == 1:
+            load_j = 0
+            for l in V:
+                load_j += h[l, j] * loads[l]
+
+            j_load[j] = load_j
+
+    return j_load
+
 
 if __name__ == '__main__':
     # y_0, y_0_size, y_0_totcost = get_feasible_sol_SP(F,H,FCost,B)
     first_try = False
 
-    time_limit = 30
+    time_limit = 15
     gap_tol = 0.05  # 1e-5
 
     OP_opt_vars = None
 
     print('########################### \n FIRST ATTEMPT TO SOLVE SP \n########################### ')
     get_single_sol_SP = True
-    SP_opt_vars_init, SP_optval_init, SP_vars_list_init = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit,
+    SP_opt_vars_init, _, _ = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit,
                                                                     get_single_sol_SP)
     get_single_sol_SP = False
 
     print('########################### \n FIRST ATTEMPT TO SOLVE OP \n###########################')
     OP_opt_vars, OP_vars_list = OP_model(params, SP_opt_vars_init, gap_tol, time_limit, first_try)
 
+    # evaluate load of open facility due to trucks routing
+    j_load = get_facility_load(OP_opt_vars)
+    # update and fix var. n according to actual j_load
+
+    r = SP_opt_vars_init['r']
+    open_list = [r_var for r_var, value in r.items() if value == 1]
+
+    x = SP_opt_vars_init['x']
+    d_cluster = {}
+    for s in S:
+        demand_s = 0
+        for i in C:
+            demand_s += x[i,s]*d[i]
+        d_cluster[s] = demand_s
+
+    capf_usage = {}
+    for r_jhs in open_list:
+        j = r_jhs[0]
+        h = r_jhs[1]
+        free_capf = capf[(j,h)] - j_load[j]
+        if free_capf >= sc[j]:
+            SP_opt_vars_init['n'][j] = 0
+        elif free_capf > 0 and free_capf < sc[j]:
+            SP_opt_vars_init['n'][j] = (sc[j] - free_capf)/sc[j]
+        else: # free_capf < 0 --> infeasible!
+
+
     print('########################### \n Evaluation of total SP objective value \n###########################')
-    _, SP_optval, _ = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP,
+    _, SP_optval, SP_vars_list = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP,
                                          SP_opt_vars_init)
+
+
+
+
 
     Heuristic = False
     if Heuristic:
