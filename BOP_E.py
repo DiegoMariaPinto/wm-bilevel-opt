@@ -88,8 +88,8 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
              for j in F for h in H for s in S}
         y = {(j): m.addVar(lb=0, ub=1, vtype=GRB.BINARY, name='y({})'.format(j))
              for j in F}
-        n = {(j): m.addVar(lb=0, ub=1, vtype=GRB.CONTINUOUS, name='n({})'.format(j))
-             for j in F}
+        n = {(j,s): m.addVar(lb=0, ub=1, vtype=GRB.CONTINUOUS, name='n({},{})'.format(j,s))
+             for j in F for s in S}
     else:
         z = OP_vars['z']
         x = {(i, s): m.addVar(lb=SP_vars_to_fix['x'][i, s], ub=SP_vars_to_fix['x'][i, s], vtype=GRB.BINARY,
@@ -101,9 +101,9 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
         y = {(j): m.addVar(lb=SP_vars_to_fix['y'][j], ub=SP_vars_to_fix['y'][j], vtype=GRB.BINARY,
                            name='y({})'.format(j))
              for j in F}
-        n = {(j): m.addVar(lb=SP_vars_to_fix['n'][j], ub=SP_vars_to_fix['n'][j], vtype=GRB.CONTINUOUS,
-                           name='n({})'.format(j))
-             for j in F}
+        n = {(j,s): m.addVar(lb=SP_vars_to_fix['n'][j], ub=SP_vars_to_fix['n'][j], vtype=GRB.CONTINUOUS,
+                           name='n({},{})'.format(j,s))
+             for j in F for s in S}
 
         # obj.fun. linearization vars
 
@@ -121,7 +121,7 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
         m.addConstr(quicksum(r[j, h, s] for s in S for h in H) == y[j], name='C2_one_size_only({})'.format(j))
     # (3)
     for s in S:
-        m.addConstr(quicksum(x[i, s] * d[i] for i in C) <= quicksum(r[j, h, s] * capf[j, h] - (r[j, h, s] - n[j]) * sc[j, h] for j in F for h in H),
+        m.addConstr(quicksum(x[i, s] * d[i] for i in C) <= quicksum(r[j, h, s] * capf[j, h] - (r[j, h, s] - n[j,s]) * sc[j, h] for j in F for h in H),
                     name='C3_demand_to_cluster({})'.format(s))
     # (4)
     for i in C:
@@ -130,7 +130,8 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
                         name='C4_facility_to_cluster({},{})'.format(i, s))
     # (5) new
     for j in F:
-        m.addConstr(n[j] <= y[j], name='C5_new_nj_iff_facility_is_open({})'.format(j))
+        for s in S:
+            m.addConstr(n[j,s] <= quicksum(r[j,h,s] for h in H), name='C5_new_nj_iff_facility_is_open({},{})'.format(j,s))
     # (5) old
     # for s in S:
     #     m.addConstr(quicksum(x[i, s] for i in C) <= quicksum(r[j, h, s] for j in F for h in H), name='C5_empty_cluster({})'.format(s))
@@ -164,12 +165,12 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
 
     if get_single_sol_SP:
         m.setObjective(gamma['1'] * quicksum(r[j, h, s] * em_f[j, h] for j in F for h in H for s in S) +
-                       gamma['2'] * quicksum(n[j] * P[j] for j in F))
+                       gamma['2'] * quicksum(n[j,s] * P[j] for j in F for s in S))
         # + quicksum(c[j, h] * r[j, h, s] for j in F for h in H for s in S))
     else:
         m.setObjective(gamma['1'] * quicksum(z[l, a, b] * em_t[a, b] for a in N for b in N for l in V) +
                        gamma['1'] * quicksum(r[j, h, s] * em_f[j, h] for j in F for h in H for s in S) +
-                       gamma['2'] * quicksum(n[j] * P[j] for j in F) +
+                       gamma['2'] * quicksum(n[j,s] * P[j] for j in F for s in S) +
                        gamma['3'] * quicksum(g[a, b, l, s] for a in C for b in C for l in V for s in S))
 
     ################# solve the formulation ####################
@@ -481,7 +482,7 @@ if __name__ == '__main__':
     # y_0, y_0_size, y_0_totcost = get_feasible_sol_SP(F,H,FCost,B)
     first_try = False
 
-    time_limit = 15
+    time_limit = 30
     gap_tol = 0.05  # 1e-5
 
     OP_opt_vars = None
@@ -496,7 +497,7 @@ if __name__ == '__main__':
     OP_opt_vars, OP_vars_list = OP_model(params, SP_opt_vars_init, gap_tol, time_limit, first_try)
 
     # evaluate load of open facility due to trucks routing
-    j_load = get_facility_load(OP_opt_vars)
+    j_load = get_facility_load(OP_opt_vars, SP_opt_vars_init)
     # update and fix var. n according to actual j_load
 
     r = SP_opt_vars_init['r']
@@ -515,11 +516,12 @@ if __name__ == '__main__':
         j = r_jhs[0]
         h = r_jhs[1]
         free_capf = capf[(j,h)] - j_load[j]
-        if free_capf >= sc[j]:
+        if free_capf >= sc[(j,h)]:
             SP_opt_vars_init['n'][j] = 0
-        elif free_capf > 0 and free_capf < sc[j]:
-            SP_opt_vars_init['n'][j] = (sc[j] - free_capf)/sc[j]
+        elif free_capf > 0 and free_capf < sc[(j,h)]:
+            SP_opt_vars_init['n'][j] = (sc[(j,h)] - free_capf)/sc[(j,h)]
         else: # free_capf < 0 --> infeasible!
+            break
 
 
     print('########################### \n Evaluation of total SP objective value \n###########################')
