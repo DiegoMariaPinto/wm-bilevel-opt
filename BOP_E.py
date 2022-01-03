@@ -88,8 +88,10 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
              for j in F for h in H for s in S}
         y = {(j): m.addVar(lb=0, ub=1, vtype=GRB.BINARY, name='y({})'.format(j))
              for j in F}
-        n = {(j,s): m.addVar(lb=0, ub=1, vtype=GRB.CONTINUOUS, name='n({},{})'.format(j,s))
-             for j in F for s in S}
+        n = {(j, h, s): m.addVar(lb=0, ub=1, vtype=GRB.CONTINUOUS, name='n({},{},{})'.format(j,h,s))
+             for j in F for h in H for s in S}
+        q = {(s) : m.addVar(lb=0, ub=1, vtype=GRB.BINARY, name='q({})'.format(s))
+             for s in S}
     else:
         z = OP_vars['z']
         x = {(i, s): m.addVar(lb=SP_vars_to_fix['x'][i, s], ub=SP_vars_to_fix['x'][i, s], vtype=GRB.BINARY,
@@ -101,9 +103,11 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
         y = {(j): m.addVar(lb=SP_vars_to_fix['y'][j], ub=SP_vars_to_fix['y'][j], vtype=GRB.BINARY,
                            name='y({})'.format(j))
              for j in F}
-        n = {(j,s): m.addVar(lb=SP_vars_to_fix['n'][j], ub=SP_vars_to_fix['n'][j], vtype=GRB.CONTINUOUS,
-                           name='n({},{})'.format(j,s))
-             for j in F for s in S}
+        n = {(j, h, s): m.addVar(lb=SP_vars_to_fix['n'][j, h, s], ub=SP_vars_to_fix['n'][j, h, s], vtype=GRB.CONTINUOUS,
+                           name='n({},{},{})'.format(j,h,s))
+             for j in F for h in H for s in S}
+        q = {(s) : m.addVar(SP_vars_to_fix['q'][s], ub=SP_vars_to_fix['q'][s], vtype=GRB.BINARY, name='q({})'.format(s))
+             for s in S}
 
         # obj.fun. linearization vars
 
@@ -121,7 +125,7 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
         m.addConstr(quicksum(r[j, h, s] for s in S for h in H) == y[j], name='C2_one_size_only({})'.format(j))
     # (3)
     for s in S:
-        m.addConstr(quicksum(x[i, s] * d[i] for i in C) <= quicksum(r[j, h, s] * capf[j, h] - (r[j, h, s] - n[j,s]) * sc[j, h] for j in F for h in H),
+        m.addConstr(quicksum(x[i, s] * d[i] for i in C) <= quicksum(r[j, h, s] * capf[j, h] - (r[j, h, s] - n[j,h,s]) * sc[j, h] for j in F for h in H),
                     name='C3_demand_to_cluster({})'.format(s))
     # (4)
     for i in C:
@@ -130,8 +134,9 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
                         name='C4_facility_to_cluster({},{})'.format(i, s))
     # (5) new
     for j in F:
-        for s in S:
-            m.addConstr(n[j,s] <= quicksum(r[j,h,s] for h in H), name='C5_new_nj_iff_facility_is_open({},{})'.format(j,s))
+        for h in H:
+            for s in S:
+                m.addConstr(n[j,h,s] <= r[j,h,s], name='C5_new_nj_iff_facility_is_open({},{},{})'.format(j,h,s))
     # (5) old
     # for s in S:
     #     m.addConstr(quicksum(x[i, s] for i in C) <= quicksum(r[j, h, s] for j in F for h in H), name='C5_empty_cluster({})'.format(s))
@@ -139,6 +144,17 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
     c = {(j, h): FCost[h] for (j, h) in itertools.product(F, H)}
     # (6)
     m.addConstr(quicksum(c[j, h] * r[j, h, s] for j in F for h in H for s in S) <= B, name='C6_budjet_constr')
+
+    # (7) constraint a minimum number of clusters
+    for s in S:
+        m.addConstr(q[s] <= quicksum(x[i,s] for i in C), name='C7_min_cluster_1({})'.format(s))
+    # (8)
+    for s in S:
+        m.addConstr(M*q[s] >= quicksum(x[i,s] for i in C), name='C8_min_cluster_2({})'.format(s))
+    # (9)
+    min_cluster = 3
+    m.addConstr(quicksum(q[s] for s in S) >= min_cluster, name='C9_min_cluster_3')
+
 
     # linearization related constraints
 
@@ -165,12 +181,12 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
 
     if get_single_sol_SP:
         m.setObjective(gamma['1'] * quicksum(r[j, h, s] * em_f[j, h] for j in F for h in H for s in S) +
-                       gamma['2'] * quicksum(n[j,s] * P[j] for j in F for s in S))
+                       gamma['2'] * quicksum(n[j,h,s] * P[j] for j in F for h in H for s in S))
         # + quicksum(c[j, h] * r[j, h, s] for j in F for h in H for s in S))
     else:
         m.setObjective(gamma['1'] * quicksum(z[l, a, b] * em_t[a, b] for a in N for b in N for l in V) +
                        gamma['1'] * quicksum(r[j, h, s] * em_f[j, h] for j in F for h in H for s in S) +
-                       gamma['2'] * quicksum(n[j,s] * P[j] for j in F for s in S) +
+                       gamma['2'] * quicksum(n[j, h, s] * P[j] for j in F for h in H for s in S) +
                        gamma['3'] * quicksum(g[a, b, l, s] for a in C for b in C for l in V for s in S))
 
     ################# solve the formulation ####################
@@ -206,6 +222,7 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
         r_opt_dict = {}
         y_opt_dict = {}
         n_opt_dict = {}
+        q_opt_dict = {}
         for var in m.getVars():
             vars_opt.append([var.VarName, var.x])
             if var.VarName.startswith('x'):
@@ -216,6 +233,8 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
                 y_opt_dict[eval(var.VarName[2:-1])] = var.x
             if var.VarName.startswith('n'):
                 n_opt_dict[eval(var.VarName[2:-1])] = var.x
+            if var.VarName.startswith('q'):
+                q_opt_dict[eval(var.VarName[2:-1])] = var.x
 
         vars_opt = pd.DataFrame.from_records(vars_opt, columns=["variable", "value"])
         vars_opt.to_excel('risultati_SP.xlsx')
@@ -224,15 +243,17 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
         r_opt = vars_opt[vars_opt['variable'].str.contains("r", na=False)]
         y_opt = vars_opt[vars_opt['variable'].str.contains("y", na=False)]
         n_opt = vars_opt[vars_opt['variable'].str.contains("n", na=False)]
+        q_opt = vars_opt[vars_opt['variable'].str.contains("q", na=False)]
 
         x_opt['value'].apply(pd.to_numeric).astype(int)
         r_opt['value'].apply(pd.to_numeric).astype(int)
         y_opt['value'].apply(pd.to_numeric).astype(int)
         n_opt['value'].apply(pd.to_numeric).astype(int)
+        q_opt['value'].apply(pd.to_numeric).astype(int)
 
-        df_vars_list = [x_opt, r_opt, y_opt, n_opt]
+        df_vars_list = [x_opt, r_opt, y_opt, n_opt, q_opt]
 
-        opt_vars = {'x': x_opt_dict, 'r': r_opt_dict, 'y': y_opt_dict, 'n': n_opt_dict}
+        opt_vars = {'x': x_opt_dict, 'r': r_opt_dict, 'y': y_opt_dict, 'n': n_opt_dict, 'q': q_opt_dict}
 
         return opt_vars, optObjVal, df_vars_list
 
@@ -244,6 +265,7 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0=None):
         y = y_0
     else:
         y = SP_vars['y']
+        r = SP_vars['r']
 
     # OP Variables
 
@@ -255,8 +277,11 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0=None):
 
     e = {(l,a): m.addVar(lb=0, vtype=GRB.INTEGER, name='e({},{})'.format(l,a))
          for l in V for a in N}
-    # obj.fun. linearization var
 
+    v = {(l,j): m.addVar(lb=0, vtype=GRB.CONTINUOUS, name='v({},{})'.format(l,j))
+         for l in V for j in F}
+
+    # obj.fun. linearization var
     w = m.addVar(vtype=GRB.CONTINUOUS, obj=1, name='w')
 
     # Constraints
@@ -327,6 +352,8 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0=None):
         for a in C:
             m.addConstr(quicksum(z[l,b,a] for b in D+C) == h[l,a], name='C_22_toclient_from_clientORdeposit_({},{})'.format(l,a))
 
+    ############################################################################################
+    ### no loop constraints :
     for l in V:
         for a in D+C:
             for b in C+F:
@@ -339,7 +366,18 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0=None):
     for l in V:
         for a in N:
             m.addConstr(e[l,a]<=M*h[l,a], name='controllo_ordine({},{})'.format(l,a))
-    # frase per commit
+    ############################################################################################
+
+    for l in V:
+        for j in F:
+            m.addConstr((h[l, j] == 1) >> (quicksum(h[(l, i)]*d[i] for i in C) == v[l,j]), name='load_of_l_to_j({},{})'.format(l,j))
+
+    for j in F:
+            m.addConstr(quicksum(v[l,j] for l in V) <= quicksum(r[j,h,s]*capf[j,h] for h in H for s in S), name='load_of_j({})'.format(j))
+
+    for l in V:
+        for j in F:
+            m.addConstr((h[l, j] == 0) >> (v[l, j] == 0),  name='load_of_l_not_to_j({},{})'.format(l, j))
 
     # 23)
     # for l in V:
@@ -397,6 +435,8 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0=None):
         h_opt_dict = {}
         z_opt_dict = {}
         e_opt_dict = {}
+        v_opt_dict = {}
+
         for var in m.getVars():
             vars_opt.append([var.VarName, var.x])
             if var.VarName.startswith('h'):
@@ -405,6 +445,8 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0=None):
                 z_opt_dict[eval(var.VarName[2:-1])] = var.x
             if var.VarName.startswith('e'):
                 e_opt_dict[eval(var.VarName[2:-1])] = var.x
+            if var.VarName.startswith('v'):
+                v_opt_dict[eval(var.VarName[2:-1])] = var.x
 
         vars_opt = pd.DataFrame.from_records(vars_opt, columns=["variable", "value"])
         vars_opt.to_excel('risultati_SP.xlsx')
@@ -412,14 +454,16 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0=None):
         h_opt = vars_opt[vars_opt['variable'].str.contains("h", na=False)]
         z_opt = vars_opt[vars_opt['variable'].str.contains("z", na=False)]
         e_opt = vars_opt[vars_opt['variable'].str.contains("e", na=False)]
+        v_opt = vars_opt[vars_opt['variable'].str.contains("v", na=False)]
 
         h_opt['value'].apply(pd.to_numeric).astype(int)
         z_opt['value'].apply(pd.to_numeric).astype(int)
         e_opt['value'].apply(pd.to_numeric).astype(int)
+        v_opt['value'].apply(pd.to_numeric).astype(int)
 
-        df_vars_list = [h_opt, z_opt, e_opt]
+        df_vars_list = [h_opt, z_opt, e_opt, v_opt]
 
-        opt_vars = {'h': h_opt_dict, 'z': z_opt_dict, 'e': e_opt_dict}
+        opt_vars = {'h': h_opt_dict, 'z': z_opt_dict, 'e': e_opt_dict, 'v': v_opt_dict}
 
         return opt_vars, df_vars_list
 
@@ -482,14 +526,14 @@ if __name__ == '__main__':
     # y_0, y_0_size, y_0_totcost = get_feasible_sol_SP(F,H,FCost,B)
     first_try = False
 
-    time_limit = 30
+    time_limit = 60
     gap_tol = 0.05  # 1e-5
 
     OP_opt_vars = None
 
     print('########################### \n FIRST ATTEMPT TO SOLVE SP \n########################### ')
     get_single_sol_SP = True
-    SP_opt_vars_init, _, _ = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit,
+    SP_opt_vars_init, _, SP_vars_init_list = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit,
                                                                     get_single_sol_SP)
     get_single_sol_SP = False
 
@@ -511,25 +555,21 @@ if __name__ == '__main__':
             demand_s += x[i,s]*d[i]
         d_cluster[s] = demand_s
 
-    capf_usage = {}
     for r_jhs in open_list:
         j = r_jhs[0]
         h = r_jhs[1]
+        s = r_jhs[2]
         free_capf = capf[(j,h)] - j_load[j]
         if free_capf >= sc[(j,h)]:
-            SP_opt_vars_init['n'][j] = 0
+            SP_opt_vars_init['n'][j,h,s] = 0
         elif free_capf > 0 and free_capf < sc[(j,h)]:
-            SP_opt_vars_init['n'][j] = (sc[(j,h)] - free_capf)/sc[(j,h)]
-        else: # free_capf < 0 --> infeasible!
-            break
+            SP_opt_vars_init['n'][j,h,s] = (sc[(j,h)] - free_capf)/sc[(j,h)]
+
 
 
     print('########################### \n Evaluation of total SP objective value \n###########################')
     _, SP_optval, SP_vars_list = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP,
                                          SP_opt_vars_init)
-
-
-
 
 
     Heuristic = False
