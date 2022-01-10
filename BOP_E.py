@@ -82,15 +82,15 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
     # Variables
     if get_single_sol_SP:
         z = None
-        x = {(i, s): m.addVar(lb=0, ub=1, vtype=GRB.BINARY, name='x({},{})'.format(i, s))
+        x = {(i, s): m.addVar(vtype=GRB.BINARY, name='x({},{})'.format(i, s))
              for i in C for s in S}
-        r = {(j, h, s): m.addVar(lb=0, ub=1, vtype=GRB.BINARY, name='r({},{},{})'.format(j, h, s))
+        r = {(j, h, s): m.addVar(vtype=GRB.BINARY, name='r({},{},{})'.format(j, h, s))
              for j in F for h in H for s in S}
-        y = {(j): m.addVar(lb=0, ub=1, vtype=GRB.BINARY, name='y({})'.format(j))
+        y = {(j): m.addVar(vtype=GRB.BINARY, name='y({})'.format(j))
              for j in F}
         n = {(j, h, s): m.addVar(lb=0, ub=1, vtype=GRB.CONTINUOUS, name='n({},{},{})'.format(j,h,s))
              for j in F for h in H for s in S}
-        q = {(s) : m.addVar(lb=0, ub=1, vtype=GRB.BINARY, name='q({})'.format(s))
+        q = {(s) : m.addVar(vtype=GRB.BINARY, name='q({})'.format(s))
              for s in S}
     else:
         z = OP_vars['z']
@@ -226,15 +226,15 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
         for var in m.getVars():
             vars_opt.append([var.VarName, var.x])
             if var.VarName.startswith('x'):
-                x_opt_dict[eval(var.VarName[2:-1])] = var.x
+                x_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
             if var.VarName.startswith('r'):
-                r_opt_dict[eval(var.VarName[2:-1])] = var.x
+                r_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
             if var.VarName.startswith('y'):
-                y_opt_dict[eval(var.VarName[2:-1])] = var.x
+                y_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
             if var.VarName.startswith('n'):
                 n_opt_dict[eval(var.VarName[2:-1])] = var.x
             if var.VarName.startswith('q'):
-                q_opt_dict[eval(var.VarName[2:-1])] = var.x
+                q_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
 
         vars_opt = pd.DataFrame.from_records(vars_opt, columns=["variable", "value"])
         vars_opt.to_excel('risultati_SP.xlsx')
@@ -245,11 +245,11 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
         n_opt = vars_opt[vars_opt['variable'].str.contains("n", na=False)]
         q_opt = vars_opt[vars_opt['variable'].str.contains("q", na=False)]
 
-        x_opt['value'].apply(pd.to_numeric).astype(int)
-        r_opt['value'].apply(pd.to_numeric).astype(int)
-        y_opt['value'].apply(pd.to_numeric).astype(int)
-        n_opt['value'].apply(pd.to_numeric).astype(int)
-        q_opt['value'].apply(pd.to_numeric).astype(int)
+        x_opt['value'].apply(pd.to_numeric)
+        r_opt['value'].apply(pd.to_numeric)
+        y_opt['value'].apply(pd.to_numeric)
+        n_opt['value'].apply(pd.to_numeric)
+        q_opt['value'].apply(pd.to_numeric)
 
         df_vars_list = [x_opt, r_opt, y_opt, n_opt, q_opt]
 
@@ -258,21 +258,18 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
         return opt_vars, optObjVal, df_vars_list
 
 
-def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0=None):
+def OP_model(params, SP_vars, gap_tol, time_limit):
     m = Model('SP')
 
-    if first_try == True:
-        y = y_0
-    else:
-        y = SP_vars['y']
-        r = SP_vars['r']
+    y = SP_vars['y']
+    r = SP_vars['r']
 
     # OP Variables
 
-    h = {(l, a): m.addVar(lb=0, ub=1, vtype=GRB.BINARY, name='h({},{})'.format(l, a))
+    h = {(l, a): m.addVar(vtype=GRB.BINARY, name='h({},{})'.format(l, a))
          for l in V for a in N}
 
-    z = {(l, a, b): m.addVar(lb=0, ub=1, vtype=GRB.BINARY, name='z({},{},{})'.format(l, a, b))
+    z = {(l, a, b): m.addVar(vtype=GRB.BINARY, name='z({},{},{})'.format(l, a, b))
          for l in V for a in N for b in N}
 
     e = {(l,a): m.addVar(lb=0, vtype=GRB.INTEGER, name='e({},{})'.format(l,a))
@@ -306,6 +303,10 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0=None):
     for k in D:
         for l in V:
             m.addConstr(quicksum(z[l, k, i] for i in C) <= a_matrix[k, l], name='C_12_({},{})'.format(k, l))
+    # 12) BIS
+    for k in D:
+        for l in V:
+            m.addConstr(quicksum(z[l, j, k] for j in F) <= a_matrix[k, l], name='C_12_BIS({},{})'.format(k, l))
     # 13)
     for j in F:
         for l in V:
@@ -353,7 +354,7 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0=None):
             m.addConstr(quicksum(z[l,b,a] for b in D+C) == h[l,a], name='C_22_toclient_from_clientORdeposit_({},{})'.format(l,a))
 
     ############################################################################################
-    ### no loop constraints :
+    ### no loop constraints:
     for l in V:
         for a in D+C:
             for b in C+F:
@@ -404,6 +405,8 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0=None):
     m.Params.MIPGap = gap_tol
     m.Params.TimeLimit = time_limit
 
+    m.Params.IntFeasTol = 1e-3 # default is 1e-5
+
     m.modelSense = GRB.MINIMIZE
     m.update()
     m.write('OP_model.lp')
@@ -440,13 +443,13 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0=None):
         for var in m.getVars():
             vars_opt.append([var.VarName, var.x])
             if var.VarName.startswith('h'):
-                h_opt_dict[eval(var.VarName[2:-1])] = var.x
+                h_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
             if var.VarName.startswith('z'):
-                z_opt_dict[eval(var.VarName[2:-1])] = var.x
+                z_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
             if var.VarName.startswith('e'):
-                e_opt_dict[eval(var.VarName[2:-1])] = var.x
+                e_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
             if var.VarName.startswith('v'):
-                v_opt_dict[eval(var.VarName[2:-1])] = var.x
+                v_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
 
         vars_opt = pd.DataFrame.from_records(vars_opt, columns=["variable", "value"])
         vars_opt.to_excel('risultati_SP.xlsx')
@@ -456,10 +459,10 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0=None):
         e_opt = vars_opt[vars_opt['variable'].str.contains("e", na=False)]
         v_opt = vars_opt[vars_opt['variable'].str.contains("v", na=False)]
 
-        h_opt['value'].apply(pd.to_numeric).astype(int)
-        z_opt['value'].apply(pd.to_numeric).astype(int)
-        e_opt['value'].apply(pd.to_numeric).astype(int)
-        v_opt['value'].apply(pd.to_numeric).astype(int)
+        h_opt['value'].apply(pd.to_numeric)
+        z_opt['value'].apply(pd.to_numeric)
+        e_opt['value'].apply(pd.to_numeric)
+        v_opt['value'].apply(pd.to_numeric)
 
         df_vars_list = [h_opt, z_opt, e_opt, v_opt]
 
@@ -468,40 +471,11 @@ def OP_model(params, SP_vars, gap_tol, time_limit, first_try, y_0=None):
         return opt_vars, df_vars_list
 
 
-# scorro le facility, inizialmente con la taglia + piccola e le apro fin quando ci è budget,
-# se avanza budjet ampio le taglie fin quando ci è buget con un nuova passata su quelle aperte,
-# se avanza bujet ampio alla ultima taglia possibile sempre su quella aperte
-def get_feasible_sol_SP(F, H, FCost, B):
-    y = {}
-    y_size = {}
-    y_totcost = 0
-    h = 'S'
-    for j in F:
-        if y_totcost + FCost[h] <= B:
-            y[j] = 1
-            y_size[j] = h
-            y_totcost += FCost[h]
-        else:
-            y[j] = 0
-    h = 'M'
-    for j in F:
-        if y[j] == 1 and y_totcost + FCost[h] - FCost['S'] <= B:
-            y_size[j] = h
-            y_totcost += FCost[h]
-            y_totcost -= FCost['S']
-    h = 'L'
-    for j in F:
-        if y[j] == 1 and y_totcost + FCost[h] - FCost['M'] <= B:
-            y_size[j] = h
-            y_totcost += FCost[h]
-            y_totcost -= FCost['S']
 
-    return y, y_size, y_totcost
-
-def get_facility_load(OP_opt_vars, SP_opt_vars_init):
+def get_facility_load(OP_opt_vars, SP_opt_vars):
 
     h = OP_opt_vars['h']
-    y = SP_opt_vars_init['y']
+    y = SP_opt_vars['y']
 
     loads = {}
     for l in V:
@@ -522,12 +496,34 @@ def get_facility_load(OP_opt_vars, SP_opt_vars_init):
     return j_load
 
 
-if __name__ == '__main__':
-    # y_0, y_0_size, y_0_totcost = get_feasible_sol_SP(F,H,FCost,B)
-    first_try = False
+def evalute_SP_objval(OP_opt_vars,SP_opt_vars):
 
-    time_limit = 60
-    gap_tol = 0.05  # 1e-5
+    # evaluate load of open facility due to trucks routing
+    j_load = get_facility_load(OP_opt_vars, SP_opt_vars)
+    # update and fix var. n according to actual j_load
+    r = SP_opt_vars['r']
+    open_list = [r_var for r_var, value in r.items() if value == 1]
+
+    for r_jhs in open_list:
+        j = r_jhs[0]
+        h = r_jhs[1]
+        s = r_jhs[2]
+        free_capf = capf[(j, h)] - j_load[j]
+        if free_capf >= sc[(j, h)]:
+            SP_opt_vars['n'][j, h, s] = 0
+        elif free_capf > 0 and free_capf < sc[(j, h)]:
+            SP_opt_vars['n'][j, h, s] = (sc[(j, h)] - free_capf) / sc[(j, h)]
+
+    get_single_sol_SP = False
+    _, SP_optval, _ = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP, SP_opt_vars)
+
+    return SP_optval
+
+
+if __name__ == '__main__':
+
+    time_limit = 20
+    gap_tol = 0.005  # 1e-5
 
     OP_opt_vars = None
 
@@ -538,7 +534,7 @@ if __name__ == '__main__':
     get_single_sol_SP = False
 
     print('########################### \n FIRST ATTEMPT TO SOLVE OP \n###########################')
-    OP_opt_vars, OP_vars_list = OP_model(params, SP_opt_vars_init, gap_tol, time_limit, first_try)
+    OP_opt_vars, OP_vars_list = OP_model(params, SP_opt_vars_init, gap_tol, time_limit)
 
     # evaluate load of open facility due to trucks routing
     j_load = get_facility_load(OP_opt_vars, SP_opt_vars_init)
@@ -566,14 +562,19 @@ if __name__ == '__main__':
             SP_opt_vars_init['n'][j,h,s] = (sc[(j,h)] - free_capf)/sc[(j,h)]
 
 
-
-    print('########################### \n Evaluation of total SP objective value \n###########################')
-    _, SP_optval, SP_vars_list = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP,
+    print('########################### \n First Evaluation of total SP objective value \n###########################')
+    SP_opt_vars, SP_optval, SP_vars_list = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP,
                                          SP_opt_vars_init)
 
+    SP_obj_evolution = {}
+    SP_obj_evolution[0] = SP_optval
 
-    Heuristic = False
+    Heuristic = True
     if Heuristic:
+        print('####### Heuristic START HERE #######')
+        count = 1
+        print('Iteration n. '+str(count))
+
         # Heuristic start:
         x = SP_opt_vars['x']
         y = SP_opt_vars['y']
@@ -584,13 +585,12 @@ if __name__ == '__main__':
 
         dist = {(a, b): disdur[(a, b)]['duration'] for (a, b) in itertools.product(N, N)}
 
-
         def get_closest_facility(j_0):
             distances = {}
             for j in F:
                 if j != j_0:
                     distances[j] = dist[(j_0, j)]
-            return max(distances, key=distances.get)
+            return min(distances, key=distances.get)
 
 
         open_list = [r_var for r_var, value in r.items() if value == 1]  # list of all (j,h,s) s.t. r[j,h,s] = 1
@@ -600,7 +600,7 @@ if __name__ == '__main__':
         if max(n.values()) > 0:  # at least one facility is using safety stock --> leader cost to decrease
             ss_used_list = [(n_var, value) for n_var, value in n.items() if
                             value > 0]  # list of all facilities j with n_j > 0
-            ss_used_list.sort(key=lambda x: x[1], reverse=True)  # list is sort in descending oreder w.r.t n_j
+            ss_used_list.sort(key=lambda x: x[1], reverse=True)  # list is sort in descending order w.r.t n_j
             for elem in ss_used_list:  # for each of these facilities where safaty stock is used (in descending oreder w.r.t n_j)
                 j = elem[0]
                 for s in S:
@@ -612,18 +612,39 @@ if __name__ == '__main__':
                                 B_used += c[j, h + 1] - c[j, h]
                                 print('facility j = ' + str(j) + ' has been enlarged to size ' + str(h + 1))
 
-                        ############################################################
-                        ## 2 step: attempt to modify Y by closing or opening some ##
-                        ## 2.1 step: computer capacity utilization of each open facility according to follower behaviour Z
-                        # for elem in ss_used_list:
+        ############################################################
+        ## 2 step: attempt to modify Y by closing or opening some ##
+        ## 2.1 step: computer capacity utilization of each open facility according to follower behaviour Z
+        # for elem in ss_used_list:
+        print(min(j_load.values()))
+        if min(j_load.values()) < 0:
+        # if min(j_load.values()) < 0.1*della capacità della facility aperta
+            j_to_close = min(j_load, key=j_load.get)
+            y[j_to_close] = 0
+            for s in S:
+                for h in H:
+                    if (j_to_close, h, s) in open_list:
+                        s_to_close = s
+                        h_to_close = h
+                        r[j_to_close, h_to_close, s_to_close] = 0
 
-                        else:  # open the facility closest to j
-                            j_to_open = get_closest_facility(j)
-                            y[j_to_open] = 1
-                            r[j_to_open, 1, s] = 1  # at its minimum size
+            # open the facility closest to j
+            j_to_help = max(n, key=n.get)
+            j_to_open = get_closest_facility(j_to_help)
+            y[j_to_open] = 1
+            r[j_to_open, h_to_close, s_to_close] = 1  # at its minimum size
 
-                            # --> passare la nuova y a OP ?
+        # New Y and R vars are give to OP for a new solution:
+        SP_opt_vars['y'] = y
+        SP_opt_vars['r'] = r
+        print('########################### \n' + str(count) + 'th iteration OF SOLVING OP \n###########################')
+        OP_opt_vars, OP_vars_list = OP_model(params, SP_opt_vars, gap_tol, time_limit)
+
+        SP_optval = evalute_SP_objval(OP_opt_vars,SP_opt_vars)
+        SP_obj_evolution[count] = SP_optval
+
+        # # cluster definition may be inefficient --> attempt to change facility distribution across clusters
+        # else:
+        #     print('ciao')
 
 
-        else:  # cluster definition may be inefficient --> attempt to change facility distribution across clusters
-            print('ciao')
