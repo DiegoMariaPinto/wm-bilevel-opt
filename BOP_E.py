@@ -609,7 +609,7 @@ if __name__ == '__main__':
 
     SP_obj_evolution = {}
     SP_obj_evolution[0] = SP_optval
-
+    # FOR PUSH
     Heuristic = True
     if Heuristic:
         print('####### Heuristic START HERE #######')
