@@ -16,8 +16,8 @@ disdur = load_instance('disdur_' + instance_name + '.json')
 
 NF = 10  # number of facilities
 NC = 30  # number of clients
-ND = 5  # number of depots
-NV = 8  # number of vehicles
+ND = 5   # number of depots
+NV = 8   # number of vehicles
 # corresponding sets:
 F = list(range(NF))  # facility list
 C = list(range(NF, NC + NF))
@@ -52,7 +52,6 @@ random_T = np.random.randint(600, 900, NV).tolist()  # maximum servicing times p
 T = {l: random_T[l] for l in V}
 random_P = np.random.randint(50, 100, NF).tolist()  # maximum penalty for a facility
 P = {j: random_P[j] for j in F}
-M = 50
 a_matrix = {(k, l): 1 for (k, l) in itertools.product(D, V) if
             k - D[0] == l - V[0]}  # trucks distribution across the depots
 
@@ -76,11 +75,11 @@ params = []
 gamma = {'1': 0.3, '2': 0.3, '3': 0.4}
 
 
-def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=False, SP_vars_to_fix=None):
+def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_first_sol_SP=False, SP_vars_to_fix=None):
     m = Model('SP')
 
     # Variables
-    if get_single_sol_SP:
+    if get_first_sol_SP:
         z = None
         x = {(i, s): m.addVar(vtype=GRB.BINARY, name='x({},{})'.format(i, s))
              for i in C for s in S}
@@ -90,8 +89,8 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
              for j in F}
         n = {(j, h, s): m.addVar(lb=0, ub=1, vtype=GRB.CONTINUOUS, name='n({},{},{})'.format(j,h,s))
              for j in F for h in H for s in S}
-        q = {(s) : m.addVar(vtype=GRB.BINARY, name='q({})'.format(s))
-             for s in S}
+        # q = {(s) : m.addVar(vtype=GRB.BINARY, name='q({})'.format(s))
+        #      for s in S}
     else:
         z = OP_vars['z']
         x = {(i, s): m.addVar(lb=SP_vars_to_fix['x'][i, s], ub=SP_vars_to_fix['x'][i, s], vtype=GRB.BINARY,
@@ -106,8 +105,8 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
         n = {(j, h, s): m.addVar(lb=SP_vars_to_fix['n'][j, h, s], ub=SP_vars_to_fix['n'][j, h, s], vtype=GRB.CONTINUOUS,
                            name='n({},{},{})'.format(j,h,s))
              for j in F for h in H for s in S}
-        q = {(s) : m.addVar(SP_vars_to_fix['q'][s], ub=SP_vars_to_fix['q'][s], vtype=GRB.BINARY, name='q({})'.format(s))
-             for s in S}
+        # q = {(s) : m.addVar(SP_vars_to_fix['q'][s], ub=SP_vars_to_fix['q'][s], vtype=GRB.BINARY, name='q({})'.format(s))
+        #      for s in S}
 
         # obj.fun. linearization vars
 
@@ -123,10 +122,12 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
     # (2)
     for j in F:
         m.addConstr(quicksum(r[j, h, s] for s in S for h in H) == y[j], name='C2_one_size_only({})'.format(j))
-    # (3)
-    for s in S:
-        m.addConstr(quicksum(x[i, s] * d[i] for i in C) <= quicksum(r[j, h, s] * capf[j, h] - (r[j, h, s] - n[j,h,s]) * sc[j, h] for j in F for h in H),
-                    name='C3_demand_to_cluster({})'.format(s))
+
+    if get_first_sol_SP:
+        # (3)
+        for s in S:
+            m.addConstr(quicksum(x[i, s] * d[i] for i in C) <= quicksum(r[j, h, s] * capf[j, h] - (r[j, h, s] - n[j,h,s]) * sc[j, h] for j in F for h in H),
+                        name='C3_demand_to_cluster({})'.format(s))
     # (4)
     for i in C:
         for s in S:
@@ -137,28 +138,29 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
         for h in H:
             for s in S:
                 m.addConstr(n[j,h,s] <= r[j,h,s], name='C5_new_nj_iff_facility_is_open({},{},{})'.format(j,h,s))
-    # (5) old
-    # for s in S:
-    #     m.addConstr(quicksum(x[i, s] for i in C) <= quicksum(r[j, h, s] for j in F for h in H), name='C5_empty_cluster({})'.format(s))
 
     c = {(j, h): FCost[h] for (j, h) in itertools.product(F, H)}
     # (6)
     m.addConstr(quicksum(c[j, h] * r[j, h, s] for j in F for h in H for s in S) <= B, name='C6_budjet_constr')
 
-    # (7) constraint a minimum number of clusters
+    max_j_for_s = 2
     for s in S:
-        m.addConstr(q[s] <= quicksum(x[i,s] for i in C), name='C7_min_cluster_1({})'.format(s))
-    # (8)
-    for s in S:
-        m.addConstr(M*q[s] >= quicksum(x[i,s] for i in C), name='C8_min_cluster_2({})'.format(s))
-    # (9)
-    min_cluster = 3
-    m.addConstr(quicksum(q[s] for s in S) >= min_cluster, name='C9_min_cluster_3')
+        m.addConstr(quicksum(r[j,h,s] for j in F for h in H) <= max_j_for_s, name='C_min_clusters')
+
+    # # (7) constraint a minimum number of clusters
+    # for s in S:
+    #     m.addConstr(q[s] <= quicksum(x[i,s] for i in C), name='C7_min_cluster_1({})'.format(s))
+    # # (8)
+    # for s in S:
+    #     m.addConstr(NC*q[s] >= quicksum(x[i,s] for i in C), name='C8_min_cluster_2({})'.format(s))
+    # # (9)
+    # min_cluster = 3
+    # m.addConstr(quicksum(q[s] for s in S) >= min_cluster, name='C9_min_cluster_3')
 
 
     # linearization related constraints
 
-    if not get_single_sol_SP:
+    if not get_first_sol_SP:
         # (21): g var lb is included in var definition
         # (22)
         for a in C:
@@ -179,10 +181,9 @@ def SP_model(params, gamma, OP_vars, gap_tol, time_limit, get_single_sol_SP=Fals
 
     # objective function
 
-    if get_single_sol_SP:
+    if get_first_sol_SP:
         m.setObjective(gamma['1'] * quicksum(r[j, h, s] * em_f[j, h] for j in F for h in H for s in S) +
                        gamma['2'] * quicksum(n[j,h,s] * P[j] for j in F for h in H for s in S))
-        # + quicksum(c[j, h] * r[j, h, s] for j in F for h in H for s in S))
     else:
         m.setObjective(gamma['1'] * quicksum(z[l, a, b] * em_t[a, b] for a in N for b in N for l in V) +
                        gamma['1'] * quicksum(r[j, h, s] * em_f[j, h] for j in F for h in H for s in S) +
@@ -307,10 +308,11 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     for k in D:
         for l in V:
             m.addConstr(quicksum(z[l, j, k] for j in F) <= a_matrix[k, l], name='C_12_BIS({},{})'.format(k, l))
-    # 13)
-    for j in F:
-        for l in V:
-            m.addConstr(quicksum(z[l, i, j] for i in C) <= y[j], name='C_13_({},{})'.format(j, l))
+    # # 13)
+    # for j in F:
+    #     for l in V:
+    #         m.addConstr(quicksum(z[l, i, j] for i in C) <= y[j], name='C_13_({},{})'.format(j, l))
+
     # 14)
     for j in F:
         for l in V:
@@ -324,12 +326,12 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
         for l in V:
             m.addConstr(quicksum(z[l, j, k] for k in D) == quicksum(z[l, i, j] for i in C),
                         name='C_16_({},{})'.format(j, l))
-    # 17)
-    for i in C:
-        for l in V:
-            m.addConstr(quicksum(z[l, i_1, i] for i_1 in C + D if i != i_1) == quicksum(
-                z[l, i, i_1] for i_1 in C if i != i_1) + quicksum(z[l, i, j] for j in F),
-                        name='C_17_({},{})'.format(i, l))
+    # # 17)
+    # for i in C:
+    #     for l in V:
+    #         m.addConstr(quicksum(z[l, i_1, i] for i_1 in C + D if i != i_1) == quicksum(
+    #             z[l, i, i_1] for i_1 in C if i != i_1) + quicksum(z[l, i, j] for j in F),
+    #                     name='C_17_({},{})'.format(i, l))
     # 18)
     for i in C:
         for l in V:
@@ -339,9 +341,9 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
         m.addConstr(quicksum(t[a, b] * z[l, a, b] for a in N for b in N if a != b) <= T[l], name='C_19_({})'.format(l))
 
     # 20) no loop over same node constraint:
-    for l in V:
-        for i in N:
-            m.addConstr(z[l, i, i] == 0, name='C_20_no_loop({},{})'.format(l, i))
+    # for l in V:
+    #     for i in N:
+    #         m.addConstr(z[l, i, i] == 0, name='C_20_no_loop({},{})'.format(l, i))
 
     # New constraints by Pizzari and Pinto in 23/12/21 binding z and h to behave
     # 21)
@@ -366,7 +368,7 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
 
     for l in V:
         for a in N:
-            m.addConstr(e[l,a]<=M*h[l,a], name='controllo_ordine({},{})'.format(l,a))
+            m.addConstr(e[l,a]<=NC*h[l,a], name='controllo_ordine({},{})'.format(l,a))
     ############################################################################################
 
     for l in V:
@@ -495,9 +497,35 @@ def get_facility_load(OP_opt_vars, SP_opt_vars):
 
     return j_load
 
+def get_cluster_load(SP_opt_vars):
+
+    x = SP_opt_vars['x']
+    s_load = {}
+    for s in S:
+        demand_s = 0
+        for i in C:
+            demand_s += x[i, s] * d[i]
+        s_load[s] = demand_s
+
+    return s_load
+
+
+def get_closest_facility_list(j_0):
+    distances = {}
+    for j in F:
+        if j != j_0:
+            distances[j] = dist[(j_0, j)]
+
+    closest_facility_list = [(j, dist_value) for j, dist_value in
+                             distances.items()]  # list of all facilities j and their distance from j_0 input
+    closest_facility_list.sort(key=lambda x: x[1], reverse=False)  # list is sort in descending order w.r.t n_j
+
+    return closest_facility_list
+
 
 def evalute_SP_objval(OP_opt_vars,SP_opt_vars):
 
+    s_load = get_cluster_load(SP_opt_vars_init)
     # evaluate load of open facility due to trucks routing
     j_load = get_facility_load(OP_opt_vars, SP_opt_vars)
     # update and fix var. n according to actual j_load
@@ -511,45 +539,58 @@ def evalute_SP_objval(OP_opt_vars,SP_opt_vars):
         free_capf = capf[(j, h)] - j_load[j]
         if free_capf >= sc[(j, h)]:
             SP_opt_vars['n'][j, h, s] = 0
-        elif free_capf > 0 and free_capf < sc[(j, h)]:
+        elif free_capf >= 0 and free_capf < sc[(j, h)]:
             SP_opt_vars['n'][j, h, s] = (sc[(j, h)] - free_capf) / sc[(j, h)]
 
-    get_single_sol_SP = False
-    _, SP_optval, _ = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP, SP_opt_vars)
+            # [(n_var, val) for n_var, val in n.items() if val > 0]
+
+    _, SP_optval, __ = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit_SP, False, SP_opt_vars)
 
     return SP_optval
 
+def find_size_and_cluster_of_j(j, H, S, list):
+    for s in S:
+        for h in H:
+            if (j, h, s) in list:
+                return h , s
+    return
+
+
+def get_j_usage(open_list, j_load, capf):
+    j_usage = {}
+    for jhs in open_list:
+        j = jhs[0]
+        h = jhs[1]
+        j_usage[j] = j_load[j] / capf[(j, h)]
+
+    return j_usage
 
 if __name__ == '__main__':
 
-    time_limit = 20
-    gap_tol = 0.005  # 1e-5
+    time_limit_SP = 20
+    time_limit_OP = 120
+    gap_tol = 0.0025  # 1e-5
 
     OP_opt_vars = None
 
     print('########################### \n FIRST ATTEMPT TO SOLVE SP \n########################### ')
-    get_single_sol_SP = True
-    SP_opt_vars_init, _, SP_vars_init_list = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit,
-                                                                    get_single_sol_SP)
-    get_single_sol_SP = False
+    get_first_sol_SP = True
+    SP_opt_vars_init, _, SP_vars_init_list = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit_SP,
+                                                                    get_first_sol_SP)
+    get_first_sol_SP = False
+
+    # evaluate load of clusters due to clients assignement
+    s_load = get_cluster_load(SP_opt_vars_init)
 
     print('########################### \n FIRST ATTEMPT TO SOLVE OP \n###########################')
-    OP_opt_vars, OP_vars_list = OP_model(params, SP_opt_vars_init, gap_tol, time_limit)
+    OP_opt_vars, OP_vars_list = OP_model(params, SP_opt_vars_init, gap_tol, time_limit_OP)
 
     # evaluate load of open facility due to trucks routing
     j_load = get_facility_load(OP_opt_vars, SP_opt_vars_init)
-    # update and fix var. n according to actual j_load
 
+    # update var. n according to actual j_load
     r = SP_opt_vars_init['r']
     open_list = [r_var for r_var, value in r.items() if value == 1]
-
-    x = SP_opt_vars_init['x']
-    d_cluster = {}
-    for s in S:
-        demand_s = 0
-        for i in C:
-            demand_s += x[i,s]*d[i]
-        d_cluster[s] = demand_s
 
     for r_jhs in open_list:
         j = r_jhs[0]
@@ -558,12 +599,12 @@ if __name__ == '__main__':
         free_capf = capf[(j,h)] - j_load[j]
         if free_capf >= sc[(j,h)]:
             SP_opt_vars_init['n'][j,h,s] = 0
-        elif free_capf > 0 and free_capf < sc[(j,h)]:
+        elif free_capf >= 0 and free_capf < sc[(j,h)]:
             SP_opt_vars_init['n'][j,h,s] = (sc[(j,h)] - free_capf)/sc[(j,h)]
 
 
     print('########################### \n First Evaluation of total SP objective value \n###########################')
-    SP_opt_vars, SP_optval, SP_vars_list = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit, get_single_sol_SP,
+    SP_opt_vars, SP_optval, SP_vars_list = SP_model(params, gamma, OP_opt_vars, gap_tol, time_limit_SP, get_first_sol_SP,
                                          SP_opt_vars_init)
 
     SP_obj_evolution = {}
@@ -572,79 +613,74 @@ if __name__ == '__main__':
     Heuristic = True
     if Heuristic:
         print('####### Heuristic START HERE #######')
-        count = 1
-        print('Iteration n. '+str(count))
+        max_k = 12
+        for count in range(1,max_k):
 
-        # Heuristic start:
-        x = SP_opt_vars['x']
-        y = SP_opt_vars['y']
-        n = SP_opt_vars['n']
-        r = SP_opt_vars['r']
+            print('Iteration n. '+str(count))
 
-        B_used = sum(c[j, h] * r[j, h, s] for j in F for h in H for s in S)
+            # Heuristic iteration start:
+            x = SP_opt_vars['x']
+            y = SP_opt_vars['y']
+            n = SP_opt_vars['n']
+            r = SP_opt_vars['r']
 
-        dist = {(a, b): disdur[(a, b)]['duration'] for (a, b) in itertools.product(N, N)}
+            B_used = sum(c[j, h] * r[j, h, s] for j in F for h in H for s in S)
 
-        def get_closest_facility(j_0):
-            distances = {}
-            for j in F:
-                if j != j_0:
-                    distances[j] = dist[(j_0, j)]
-            return min(distances, key=distances.get)
+            dist = {(a, b): disdur[(a, b)]['duration'] for (a, b) in itertools.product(N, N)}
 
+            open_list = [r_var for r_var, value in r.items() if value == 1]  # list of all (j,h,s) s.t. r[j,h,s] = 1
 
-        open_list = [r_var for r_var, value in r.items() if value == 1]  # list of all (j,h,s) s.t. r[j,h,s] = 1
+            ###################################################################
+            ## 1 step: enlarge size of open facilities using safety stock ##
+            if max(n.values()) > 0:  # at least one facility is using safety stock --> leader cost to decrease
+                ss_used_list = [(n_var, value) for n_var, value in n.items() if
+                                value > 0]  # list of all facilities j with n_j > 0
+                ss_used_list.sort(key=lambda x: x[1], reverse=True)  # list is sort in descending order w.r.t n_j
+                for elem in ss_used_list:  # for each of these facilities where safaty stock is used (in descending oreder w.r.t n_j)
+                    j = elem[0][0]
+                    h = elem[0][1]
+                    s = elem[0][2]
+                    if h != 3 and B_used + c[j, h + 1] - c[j, h] <= B:  # upgrade its size if possible and check if budjet is available
+                        r[j, h, s] = 0
+                        r[j, h + 1, s] = 1
+                        B_used += c[j, h + 1] - c[j, h]
+                        print('facility j = ' + str(j) + ' has been enlarged to size ' + str(h + 1))
 
-        ###################################################################
-        ## 1 step: enlarge size of open facilities using safety stock ##
-        if max(n.values()) > 0:  # at least one facility is using safety stock --> leader cost to decrease
-            ss_used_list = [(n_var, value) for n_var, value in n.items() if
-                            value > 0]  # list of all facilities j with n_j > 0
-            ss_used_list.sort(key=lambda x: x[1], reverse=True)  # list is sort in descending order w.r.t n_j
-            for elem in ss_used_list:  # for each of these facilities where safaty stock is used (in descending oreder w.r.t n_j)
-                j = elem[0]
-                for s in S:
-                    for h in H:
-                        if (j, h, s) in open_list and h != 3:  # upgrade its size if possible
-                            if B_used + c[j, h + 1] - c[j, h] <= B:  # check if budjet is available
-                                r[j, h, s] = 0
-                                r[j, h + 1, s] = 1
-                                B_used += c[j, h + 1] - c[j, h]
-                                print('facility j = ' + str(j) + ' has been enlarged to size ' + str(h + 1))
+            ############################################################
+            ## 2 step: attempt to modify Y by closing or opening some facility ##
+            ## 2.1 step: compute capacity utilization of each open facility according to follower behaviour Z
+            # compute percentage of stock usage w.r.t. facility capacity
+            j_load = get_facility_load(OP_opt_vars, SP_opt_vars)
+            j_usage = get_j_usage(open_list, j_load, capf)
+            if min(j_usage.values()) < 0.4:
+                j_to_close = min(j_usage, key=j_load.get)
+                print('found facility to close: is facility ' + str(j_to_close) + ' being used at '+str(min(j_usage.values())))
+                y[j_to_close] = 0
+                h_to_close, s_to_close = find_size_and_cluster_of_j(j_to_close, H, S, open_list)
+                r[j_to_close, h_to_close, s_to_close] = 0
 
-        ############################################################
-        ## 2 step: attempt to modify Y by closing or opening some ##
-        ## 2.1 step: computer capacity utilization of each open facility according to follower behaviour Z
-        # for elem in ss_used_list:
-        print(min(j_load.values()))
-        if min(j_load.values()) < 0:
-        # if min(j_load.values()) < 0.1*della capacità della facility aperta
-            j_to_close = min(j_load, key=j_load.get)
-            y[j_to_close] = 0
-            for s in S:
-                for h in H:
-                    if (j_to_close, h, s) in open_list:
-                        s_to_close = s
-                        h_to_close = h
-                        r[j_to_close, h_to_close, s_to_close] = 0
+                # open the facility closest to j
+                j_to_help = max(n, key=n.get)[0]
+                closest_facility_list = get_closest_facility_list(j_to_help)
+                for j in closest_facility_list:
+                    if j[0] not in [elem[0] for elem in open_list]:
+                        j_to_open = j[0]
+                        break
 
-            # open the facility closest to j
-            j_to_help = max(n, key=n.get)
-            j_to_open = get_closest_facility(j_to_help)
-            y[j_to_open] = 1
-            r[j_to_open, h_to_close, s_to_close] = 1  # at its minimum size
+                y[j_to_open] = 1
+                r[j_to_open, h_to_close, s_to_close] = 1
+                print('found facility to open: is facility ' + str(j_to_open))
+            # New Y and R vars are give to OP for a new solution:
+            SP_opt_vars['y'] = y
+            SP_opt_vars['r'] = r
+            print('########################### \n' + str(count) + 'th iteration of SOLVING OP \n###########################')
+            OP_opt_vars, OP_vars_list = OP_model(params, SP_opt_vars, gap_tol, time_limit_OP)
 
-        # New Y and R vars are give to OP for a new solution:
-        SP_opt_vars['y'] = y
-        SP_opt_vars['r'] = r
-        print('########################### \n' + str(count) + 'th iteration OF SOLVING OP \n###########################')
-        OP_opt_vars, OP_vars_list = OP_model(params, SP_opt_vars, gap_tol, time_limit)
+            SP_optval_k = evalute_SP_objval(OP_opt_vars,SP_opt_vars)
+            SP_obj_evolution[count] = SP_optval_k
 
-        SP_optval = evalute_SP_objval(OP_opt_vars,SP_opt_vars)
-        SP_obj_evolution[count] = SP_optval
-
-        # # cluster definition may be inefficient --> attempt to change facility distribution across clusters
-        # else:
-        #     print('ciao')
+            # # cluster definition may be inefficient --> attempt to change facility distribution across clusters
+            # else:
+            #     print('ciao')
 
 
