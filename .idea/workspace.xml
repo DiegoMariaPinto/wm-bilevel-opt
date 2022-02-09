@@ -1,12 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="51b6fa7d-d5b6-4b9b-842e-0ac3ed7baa50" name="Changes" comment="Aggiornamenti per Euristica">
-      <change beforePath="$PROJECT_DIR$/BOP_E.py" beforeDir="false" afterPath="$PROJECT_DIR$/BOP_E.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/OP_model.lp" beforeDir="false" afterPath="$PROJECT_DIR$/OP_model.lp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/SP.ilp" beforeDir="false" afterPath="$PROJECT_DIR$/SP.ilp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/SP_model.lp" beforeDir="false" afterPath="$PROJECT_DIR$/SP_model.lp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/risultati_SP.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/risultati_SP.xlsx" afterDir="false" />
+    <list default="true" id="51b6fa7d-d5b6-4b9b-842e-0ac3ed7baa50" name="Changes" comment="Consolidamento Euristica">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -60,6 +56,9 @@
       <module name="wm-bilevel-opt" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
       <option name="SDK_HOME" value="$USER_HOME$/anaconda3/envs/Gurobi_ML_py38/bin/python" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
       <option name="IS_MODULE_SDK" value="false" />
@@ -191,7 +190,7 @@
       <workItem from="1643725252521" duration="5896000" />
       <workItem from="1643792139459" duration="14285000" />
       <workItem from="1643912795200" duration="631000" />
-      <workItem from="1644398863328" duration="8845000" />
+      <workItem from="1644398863328" duration="9820000" />
     </task>
     <task id="LOCAL-00001" summary="Aggiunti altri parametri di SP e OP">
       <created>1637756220170</created>
@@ -284,7 +283,21 @@
       <option name="project" value="LOCAL" />
       <updated>1641817994135</updated>
     </task>
-    <option name="localTasksCounter" value="14" />
+    <task id="LOCAL-00014" summary="Consolidamento Euristica">
+      <created>1644416273105</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1644416273105</updated>
+    </task>
+    <task id="LOCAL-00015" summary="Consolidamento Euristica">
+      <created>1644416599739</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1644416599739</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -321,7 +334,8 @@
     <MESSAGE value="Aggiornamenti vari di capodanno" />
     <MESSAGE value="Aggiornamenti vari di capodanno # 3" />
     <MESSAGE value="Aggiornamenti per Euristica" />
-    <option name="LAST_COMMIT_MESSAGE" value="Aggiornamenti per Euristica" />
+    <MESSAGE value="Consolidamento Euristica" />
+    <option name="LAST_COMMIT_MESSAGE" value="Consolidamento Euristica" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
