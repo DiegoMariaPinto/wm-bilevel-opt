@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="51b6fa7d-d5b6-4b9b-842e-0ac3ed7baa50" name="Changes" comment="Aggiornamenti per Euristica">
+      <change beforePath="$PROJECT_DIR$/BOP_E.py" beforeDir="false" afterPath="$PROJECT_DIR$/BOP_E.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/OP_model.lp" beforeDir="false" afterPath="$PROJECT_DIR$/OP_model.lp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/SP.ilp" beforeDir="false" afterPath="$PROJECT_DIR$/SP.ilp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/SP_model.lp" beforeDir="false" afterPath="$PROJECT_DIR$/SP_model.lp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/risultati_SP.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/risultati_SP.xlsx" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitSEFilterConfiguration">
+    <file-type-list>
+      <filtered-out-file-type name="LOCAL_BRANCH" />
+      <filtered-out-file-type name="REMOTE_BRANCH" />
+      <filtered-out-file-type name="TAG" />
+      <filtered-out-file-type name="COMMIT_BY_MESSAGE" />
+    </file-type-list>
+  </component>
+  <component name="ProjectId" id="21KRRRK0dHbPD1Va3oW2XyiYWWM" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../ctemopt" />
+    <property name="settings.editor.selected.configurable" value="editor.preferences.completion" />
+  </component>
+  <component name="PyConsoleOptionsProvider">
+    <option name="myPythonConsoleState">
+      <console-settings module-name="wm-bilevel-opt" is-module-sdk="true">
+        <option name="myUseModuleSdk" value="true" />
+        <option name="myModuleName" value="wm-bilevel-opt" />
+      </console-settings>
+    </option>
+  </component>
+  <component name="RunManager" selected="Python.BOP_E_run">
+    <configuration name="BOP_E_run" type="PythonConfigurationType" factoryName="Python">
+      <module name="wm-bilevel-opt" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="$USER_HOME$/anaconda3/envs/Gurobi_ML_py38/bin/python" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/BOP_E.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="BOP_run" type="PythonConfigurationType" factoryName="Python">
+      <module name="wm-bilevel-opt" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="$USER_HOME$/anaconda3/envs/Gurobi_ML_py38/bin/python" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/BOP.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Get_instances_run" type="PythonConfigurationType" factoryName="Python">
+      <module name="wm-bilevel-opt" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="$USER_HOME$/anaconda3/envs/Gurobi_ML_py38/bin/python" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Get_instances.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="PythonConfigurationType" factoryName="Python">
+      <module name="wm-bilevel-opt" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Python.BOP_run" />
+      <item itemvalue="Python.BOP_E_run" />
+      <item itemvalue="Python.Get_instances_run" />
+    </list>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="51b6fa7d-d5b6-4b9b-842e-0ac3ed7baa50" name="Changes" comment="" />
+      <created>1637687783915</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1637687783915</updated>
+      <workItem from="1637687785645" duration="16000" />
+      <workItem from="1637745313587" duration="672000" />
+      <workItem from="1637746090544" duration="46000" />
+      <workItem from="1637746669049" duration="1103000" />
+      <workItem from="1637747793546" duration="105000" />
+      <workItem from="1637747917167" duration="11620000" />
+      <workItem from="1637848063700" duration="615000" />
+      <workItem from="1637915542478" duration="5972000" />
+      <workItem from="1637932037876" duration="1247000" />
+      <workItem from="1638263408658" duration="8666000" />
+      <workItem from="1638349769930" duration="1000" />
+      <workItem from="1638376132890" duration="220000" />
+      <workItem from="1638382462696" duration="3856000" />
+      <workItem from="1638434393627" duration="326000" />
+      <workItem from="1638436093224" duration="4311000" />
+      <workItem from="1638543681651" duration="14967000" />
+      <workItem from="1639039779120" duration="5369000" />
+      <workItem from="1639052370221" duration="4919000" />
+      <workItem from="1639403327271" duration="6169000" />
+      <workItem from="1639411554872" duration="58000" />
+      <workItem from="1639498022802" duration="4194000" />
+      <workItem from="1639577538815" duration="923000" />
+      <workItem from="1639651931817" duration="9322000" />
+      <workItem from="1640099847468" duration="8591000" />
+      <workItem from="1640252417577" duration="1473000" />
+      <workItem from="1640253902184" duration="8557000" />
+      <workItem from="1640264496130" duration="379000" />
+      <workItem from="1641201796982" duration="7153000" />
+      <workItem from="1641218485206" duration="8789000" />
+      <workItem from="1641804804819" duration="11498000" />
+      <workItem from="1641912013808" duration="25000" />
+      <workItem from="1642066482587" duration="6421000" />
+      <workItem from="1642080565583" duration="218000" />
+      <workItem from="1643725252521" duration="5896000" />
+      <workItem from="1643792139459" duration="14285000" />
+      <workItem from="1643912795200" duration="631000" />
+      <workItem from="1644398863328" duration="8845000" />
+    </task>
+    <task id="LOCAL-00001" summary="Aggiunti altri parametri di SP e OP">
+      <created>1637756220170</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1637756220170</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Aggiunto file di funzioni per la generazione di istanze">
+      <created>1637933269504</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1637933269504</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Aggiunte formulazioni SP e OP in BOP.py">
+      <created>1638291973008</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1638291973008</updated>
+    </task>
+    <task id="LOCAL-00004" summary="Aggiunte funzioni obiettivo linearizzate e vincoli necessari per SP e OP in BOP.py">
+      <created>1638388289469</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1638388289469</updated>
+    </task>
+    <task id="LOCAL-00005" summary="Stabilizzate e aggiornate varie">
+      <created>1639409869705</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1639409869705</updated>
+    </task>
+    <task id="LOCAL-00006" summary="Iniziata scrittura Euristica">
+      <created>1639673415262</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1639673415262</updated>
+    </task>
+    <task id="LOCAL-00007" summary="Aggiornamenti vari">
+      <created>1640252528145</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1640252528145</updated>
+    </task>
+    <task id="LOCAL-00008" summary="Aggiornamenti vari">
+      <created>1640264270925</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1640264270925</updated>
+    </task>
+    <task id="LOCAL-00009" summary="Aggiornamenti vari">
+      <created>1640264538862</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1640264538862</updated>
+    </task>
+    <task id="LOCAL-00010" summary="Aggiornamenti vari per risolvere problemi push/pull">
+      <created>1640264695415</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1640264695415</updated>
+    </task>
+    <task id="LOCAL-00011" summary="Aggiornamenti vari di capodanno">
+      <created>1641211893064</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1641211893065</updated>
+    </task>
+    <task id="LOCAL-00012" summary="Aggiornamenti vari di capodanno # 3">
+      <created>1641226509798</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1641226509798</updated>
+    </task>
+    <task id="LOCAL-00013" summary="Aggiornamenti per Euristica">
+      <created>1641817994135</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1641817994135</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="CUSTOM_BOOLEAN_PROPERTIES">
+                <map>
+                  <entry key="Show.Git.Branches" value="false" />
+                </map>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="oldMeFiltersMigrated" value="true" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
+    <MESSAGE value="Aggiunti altri parametri di SP e OP" />
+    <MESSAGE value="Aggiunto file di funzioni per la generazione di istanze" />
+    <MESSAGE value="Aggiunte formulazioni SP e OP in BOP.py" />
+    <MESSAGE value="Aggiunte funzioni obiettivo linearizzate e vincoli necessari per SP e OP in BOP.py" />
+    <MESSAGE value="Stabilizzate e aggiornate varie" />
+    <MESSAGE value="Iniziata scrittura Euristica" />
+    <MESSAGE value="Aggiornamenti vari" />
+    <MESSAGE value="Aggiornamenti vari per risolvere problemi push/pull" />
+    <MESSAGE value="Aggiornamenti vari di capodanno" />
+    <MESSAGE value="Aggiornamenti vari di capodanno # 3" />
+    <MESSAGE value="Aggiornamenti per Euristica" />
+    <option name="LAST_COMMIT_MESSAGE" value="Aggiornamenti per Euristica" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/Get_instances.py</url>
+          <line>215</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+      <default-breakpoints>
+        <breakpoint type="python-exception">
+          <properties notifyOnTerminate="true" exception="BaseException">
+            <option name="notifyOnTerminate" value="true" />
+          </properties>
+        </breakpoint>
+      </default-breakpoints>
+    </breakpoint-manager>
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/wm_bilevel_opt$BOP_E_run.coverage" NAME="BOP_E_run Coverage Results" MODIFIED="1644406276888" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/wm_bilevel_opt$RunSetting.coverage" NAME="RunSetting Coverage Results" MODIFIED="1637749236014" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/wm_bilevel_opt$BOP_run.coverage" NAME="BOP_run Coverage Results" MODIFIED="1640255131866" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+  </component>
+</project>
