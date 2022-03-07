@@ -636,6 +636,7 @@ def evalute_SP_objval(OP_opt_vars,SP_opt_vars, params, gap_tol):
 
     return SP_optval
 
+
 def find_size_and_cluster_of_j(j, H, S, list):
     for s in S:
         for h in H:

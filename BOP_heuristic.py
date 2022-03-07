@@ -26,6 +26,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
     ND = inst_data['ND']
     NV = inst_data['NV']
 
+
     results = [instance_name] # list of results info to be appended
 
     return results

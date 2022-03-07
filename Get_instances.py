@@ -212,6 +212,7 @@ def load_json_instance(target_path, target_file):
 
     return data
 
+
 if __name__ == '__main__':
 
     clients = pd.read_excel('All_clients.xlsx', index_col=[0])
