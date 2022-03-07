@@ -631,7 +631,6 @@ def evalute_SP_objval(OP_opt_vars,SP_opt_vars, params, gap_tol):
         elif free_capf >= 0 and free_capf < sc[(j, h)]:
             SP_opt_vars['n'][j, h, s] = (sc[(j, h)] - free_capf) / sc[(j, h)]
 
-            # [(n_var, val) for n_var, val in n.items() if val > 0]
 
     _, SP_optval, __ = SP_model(params, OP_opt_vars, gap_tol, SP_time_limit, False, SP_opt_vars)
 
