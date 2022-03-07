@@ -613,7 +613,7 @@ if __name__ == '__main__':
     Heuristic = True
     if Heuristic:
         print('####### Heuristic START HERE #######')
-        max_k = 12
+        max_k = 5
         for count in range(1,max_k):
 
             print('Iteration n. '+str(count))
@@ -648,10 +648,15 @@ if __name__ == '__main__':
 
             ############################################################
             ## 2 step: attempt to modify Y by closing or opening some facility ##
-            ## 2.1 step: compute capacity utilization of each open facility according to follower behaviour Z
-            # compute percentage of stock usage w.r.t. facility capacity
+            ## This is done according to two differet triggers: 2.1 and 2.2
+
+            ## 2.1 step: compute percentage of stock usage w.r.t. facility capacity according to follower behaviour Z
+            ## close facility with lowest percentage use and open the closest facility to the one with biggest n value.
             j_load = get_facility_load(OP_opt_vars, SP_opt_vars)
             j_usage = get_j_usage(open_list, j_load, capf)
+
+            j_to_close_list = dict(sorted(j_usage.items(), key=operator.itemgetter(1), reverse=False))
+
             if min(j_usage.values()) < 0.4:
                 j_to_close = min(j_usage, key=j_load.get)
                 print('found facility to close: is facility ' + str(j_to_close) + ' being used at '+str(min(j_usage.values())))
@@ -661,6 +666,7 @@ if __name__ == '__main__':
 
                 # open the facility closest to j
                 j_to_help = max(n, key=n.get)[0]
+
                 closest_facility_list = get_closest_facility_list(j_to_help)
                 for j in closest_facility_list:
                     if j[0] not in [elem[0] for elem in open_list]:
@@ -670,6 +676,25 @@ if __name__ == '__main__':
                 y[j_to_open] = 1
                 r[j_to_open, h_to_close, s_to_close] = 1
                 print('found facility to open: is facility ' + str(j_to_open))
+
+            ## 2.2 step: Help facility with the biggest ss usage by opening a new facility as close as possible
+            elif min(n.values()) > 0.5:
+                # how j_to_help_list can be used?
+                # j_to_help_list = [keyval for keyval in ss_used_list if keyval[1] > 0.5]
+
+                j_to_help = max(n, key=n.get)[0]
+                # open the facility closest to j
+                closest_facility_list = get_closest_facility_list(j_to_help)
+                for j in closest_facility_list:
+                    if j[0] not in [elem[0] for elem in open_list]:
+                        j_to_open = j[0]
+                        break
+
+                y[j_to_open] = 1
+                r[j_to_open, h_to_close, s_to_close] = 1
+                print('found facility to open: is facility ' + str(j_to_open))
+
+
             # New Y and R vars are give to OP for a new solution:
             SP_opt_vars['y'] = y
             SP_opt_vars['r'] = r

@@ -13,6 +13,7 @@ import time
 import json
 from json import loads, dumps
 from ast import literal_eval
+import os
 
 ##########################################################################################
 #########################  DOCKER SERVER on PORT 5000  ###################################
@@ -160,7 +161,7 @@ def get_node_region(lat, long):
 
     return regione
 
-def create_instance(clients, facilities, NF, NC, ND):
+def create_instance(clients, facilities, NF, NC, ND, random_state):
     facilities = facilities.sample(n=NF, random_state=random_state)
     clients = clients.sample(n=NC, random_state=random_state + 1)
     depots = clients.sample(n=ND, random_state=random_state - 1)
@@ -173,9 +174,9 @@ def create_instance(clients, facilities, NF, NC, ND):
     nodes['node'] = nodes.index
     nodes.drop(columns=['level_0', 'index'], inplace=True)
 
-    df_data, disdur = get_ODbyOSM(nodes)
+    instace_df, disdur = get_ODbyOSM(nodes)
 
-    return nodes, df_data, disdur
+    return nodes, disdur
 
 
 def save_instance(disdur,instance_name):
@@ -187,38 +188,75 @@ def save_instance(disdur,instance_name):
 
     return
 
-def load_instance(json_file_name):
+def write_json_instance(target_path, target_file, data):
+    if not os.path.exists(target_path):
+        try:
+            os.makedirs(target_path)
+        except Exception as e:
+            print(e)
+            raise
+
+    with open(os.path.join(target_path, target_file), 'w') as f:
+        json.dump(data, f)
+
+def load_json_instance(target_path, target_file):
     # load in two stages:
     # Opening JSON file
-    with open(json_file_name, 'r') as json_file:
+    with open(os.path.join(target_path, target_file), 'r') as json_file:
         data = json.load(json_file)
-    obj = loads(data)
+
+    data['disdur_dict'] = loads(data['disdur_dict'])
 
     # (ii) convert loaded keys from string back to tuple
-    dict_loaded = {literal_eval(k): v for k, v in obj.items()}
+    data['disdur_dict'] = {literal_eval(k): v for k, v in data['disdur_dict'].items()}
 
-    return dict_loaded
+    return data
 
 if __name__ == '__main__':
 
     clients = pd.read_excel('All_clients.xlsx', index_col=[0])
     facilities = pd.read_excel('All_facilities.xlsx', index_col=[0])
 
-    # set instance name, number of clients, facilities and depot for new istance creation
-    instance_name = 'inst_#1'
-    NF = 10
-    NC = 30
-    ND = 5
-    random_state = 1234  # 1234
+    # set instance name, number of clients, facilities and depot for new instance creation
 
-    nodes, inst_data, disdur = create_instance(clients, facilities, NF, NC, ND)
+    # NF number of facilities
+    # NC number of clients
+    # ND number of depots
+    # NV number of vehicles
 
-    save_instance(disdur,instance_name)
+    # sets dimensions are (NF [number of facilities], NC [number of clients], ND [number of depots], NV [number of vehicles])
+    sets_dimension_list = [(5,15,2,4), (10,30,5,8), (15,60,8,12)]
 
-    # dict_loaded = load_instance('disdur_inst_#1.json')
+    instance_num = 1
 
-    display_map = True
+    size_dimension = 0
+    for sets_dimension in sets_dimension_list:
+        NF = sets_dimension[0]
+        NC = sets_dimension[1]
+        ND = sets_dimension[2]
+        NV = sets_dimension[3]
+        for instance in range(size_dimension*instance_num + 1, size_dimension*instance_num + instance_num+1):
+            instance_name = 'inst_#'+str(instance)
+            random_state = instance
+            nodes, disdur = create_instance(clients, facilities, NF, NC, ND, random_state)
+
+            nodes_info = nodes.to_dict()
+            inst_data = {'NF': NF, 'NC': NC, 'ND': ND, 'NV': NV}
+            disdur_tosave = dumps({str(k): v for k, v in disdur.items()})
+            instance_data = {'nodes_info': nodes_info, 'inst_data': inst_data, 'disdur_dict' : disdur_tosave}
+
+            write_json_instance('./instances', instance_name+'.json', instance_data)
+            load_json_instance('./instances',  instance_name+'.json')
+
+        size_dimension += 1
+
+
+
+    display_map = False
     if display_map:
+        instance_name = 'inst_#'+str(1)
+        instance_data = load_json_instance('./instances', instance_name + '.json')
+        nodes = pd.DataFrame.from_dict(instance_data[nodes_info])  ## FIX !!
         nodes.lat = pd.to_numeric(nodes.lat)
         nodes.long = pd.to_numeric(nodes.long)
         start = time.time()
