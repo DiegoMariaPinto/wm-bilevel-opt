@@ -12,7 +12,6 @@ from Get_instances import load_json_instance
 
 
 
-
 def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
 
     data = load_json_instance('./instances', instance_name + '.json')

@@ -245,7 +245,7 @@ def SP_model(params, OP_vars, gap_tol, time_limit, get_first_sol_SP=False, SP_va
     status = m.status
     if status == GRB.Status.INFEASIBLE:
         status = "infeasible"
-        print(status)
+        print('SP MODEL IS INFEASIBLE')
         m.computeIIS()
         for c in m.getConstrs():
             if c.IISConstr:
@@ -254,7 +254,10 @@ def SP_model(params, OP_vars, gap_tol, time_limit, get_first_sol_SP=False, SP_va
         return np.nan, np.nan, np.nan
 
     if status == GRB.Status.OPTIMAL or status == 9:  # 9 is equivalent to 'Time Limit Reached'
-        print(status)
+        if status == 2:
+            print('SP model was solved to optimality')
+        if status == 9:
+            print('SP Time Limit Reached')
         optObjVal = m.getAttr(GRB.Attr.ObjVal)
         bestObjBound = m.getAttr(GRB.Attr.ObjBound)
         Runtime = m.Runtime
@@ -495,7 +498,7 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
 
     status = m.status
     if status == GRB.Status.INFEASIBLE:
-        print('MODEL IS INFEASIBLE')
+        print('OP MODEL IS INFEASIBLE')
         m.computeIIS()
         for c in m.getConstrs():
             if c.IISConstr:
@@ -505,9 +508,9 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
 
     if status == GRB.Status.OPTIMAL or status == 9:  # 9 is equivalent to 'Time Limit Reached'
         if status == 2:
-            print('model was solved to optimality')
+            print('OP model was solved to optimality')
         if status == 9:
-            print('Time Limit Reached')
+            print('OP Time Limit Reached')
         optObjVal = m.getAttr(GRB.Attr.ObjVal)
         bestObjBound = m.getAttr(GRB.Attr.ObjBound)
         Runtime = m.Runtime
@@ -738,6 +741,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
         for count in range(1,maxit):
 
             print('Iteration n. '+str(count))
+            print('########################### \n' + 'Heursitic Iteration n. ' + str(count) + '\n###########################')
 
             # Heuristic iteration start:
             x = SP_opt_vars['x']
@@ -779,7 +783,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
             j_to_close_list = sorted(j_usage.items(), key=operator.itemgetter(1), reverse=False)
             j_to_help_list = [keyval for keyval in ss_used_list if keyval[1] > 0.5]
 
-            if min(j_usage.values()) < 0.5:
+            if min(j_usage.values()) < 0.4:
                 trigger = 1
                 gotit = False
                 for j1 in j_to_close_list:
@@ -803,7 +807,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
                 y[j_to_close] = 0
                 h_to_close, s_to_close = find_size_and_cluster_of_j(j_to_close, H, S, open_list)
                 r[j_to_close, h_to_close, s_to_close] = 0
-
+                print('Trigger 2.1: found facility to help: is facility ' + str(j_to_help))
                 y[j_to_open] = 1
                 r[j_to_open, h_to_close, s_to_close] = 1
                 print('Trigger 2.1: found facility to open: is facility ' + str(j_to_open))
@@ -831,28 +835,53 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
 
                 h,s = find_size_and_cluster_of_j(j_to_help, H, S, open_list)
                 r[j_to_open, 1, s] = 1
-                print('Trigger 2.2: facility to open is facility ' + str(j_to_open))
+                print('Trigger 2.2: found facility to open: is facility ' + str(j_to_open))
+                print('Trigger 2.2: found facility to help: is facility ' + str(j_to_help))
 
 
             # New Y and R vars are give to OP for a new solution:
             SP_opt_vars['y'] = y
             SP_opt_vars['r'] = r
-            print('########################### \n' + str(count) + 'th iteration of SOLVING OP \n###########################')
+            print('\n' + str(count) + 'th iteration of solving OP \n')
             OP_opt_vars, OP_vars_list = OP_model(params, SP_opt_vars, gap_tol, OP_time_limit)
 
             SP_optval_k = evalute_SP_objval(OP_opt_vars,SP_opt_vars,params, gap_tol)
             SP_obj_evolution[count] = SP_optval_k
 
-
             if SP_optval_k < best_obj:
+                print('Heuristic iteration DID SUCCEED reducing obj val!')
                 best_obj = SP_optval_k
                 best_sol = (OP_opt_vars,SP_opt_vars)
                 best_k = count
+                # update open list
+                open_list = [r_var for r_var, value in r.items() if value == 1]
+                print('open list is: ')
+                print(open_list)
             else:
+                print('Heuristic iteration did not succeed in reducing obj val')
                 if trigger == 1:
                     trigger_1_black_list.append((j_to_close,j_to_help,j_to_open))
+                    y[j_to_close] = 1
+                    r[j_to_close, h_to_close, s_to_close] = 1
+                    y[j_to_open] = 0
+                    r[j_to_open, h_to_close, s_to_close] = 0
+                    n[j_to_open, h_to_close, s_to_close] = 0
+                    SP_opt_vars['y'] = y
+                    SP_opt_vars['r'] = r
+                    SP_opt_vars['n'] = n
+                    open_list = [r_var for r_var, value in r.items() if value == 1]
+                    print('open list is: ')
+                    print(open_list)
                 if trigger == 2:
                     trigger_2_black_list.append((j_to_help,j_to_open))
+                    y[j_to_open] = 0
+                    r[j_to_open, 1, s] = 0
+                    n[j_to_open, 1, s] = 0
+                    SP_opt_vars['y'] = y
+                    SP_opt_vars['r'] = r
+                    open_list = [r_var for r_var, value in r.items() if value == 1]
+                    print('open list is: ')
+                    print(open_list)
 
 
             # cluster definition may be inefficient --> attempt to change facility distribution across clusters
