@@ -49,15 +49,20 @@ def create_params(NF,NC,ND,NV,disdur):
     T = {l: random_T[l] for l in V}
     random_P = np.random.randint(50, 100, NF).tolist()  # maximum penalty for a facility
     P = {j: random_P[j] for j in F}
+
     a_matrix = {(k, l): 1 for (k, l) in itertools.product(D, V) if
                 k - D[0] == l - V[0]}  # trucks distribution across the depots
 
     for (k, l) in itertools.product(D, V):
         if k - D[0] != l - V[0]:
             a_matrix[(k, l)] = 0
-    a_matrix[(40, 5)] = 1
-    a_matrix[(41, 6)] = 1
-    a_matrix[(42, 7)] = 1
+
+    if len(V) > len(D):
+        for i in np.arange(1,1+int(len(V)/len(D))):
+            for (k, l) in itertools.product(D, V[i*len(D):]):
+                if k - D[0] == l - V[i*len(D):][0]:
+                    a_matrix[(k, l)] = 1
+
     # a_k_l == 1 if truck l start its tour from depot k
 
     OP_params = {'t': t, 'truck_em_coeff': truck_em_coeff, 'em_t':em_t, 'cv': cv, 'T': T, 'P':P, 'a_matrix': a_matrix}
@@ -727,7 +732,6 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
     SP_obj_evolution = {}
     SP_obj_evolution[0] = SP_optval
     best_obj = SP_optval
-    best_sol = (OP_opt_vars, SP_opt_vars)
     best_k = 0
 
     print('first solution open facility list is : \n')
@@ -736,6 +740,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
     Heuristic = True
     if Heuristic:
         print('####### Heuristic START HERE #######')
+        trigger_0_black_list = []
         trigger_1_black_list = []
         trigger_2_black_list = []
         for count in range(1,maxit):
@@ -755,6 +760,8 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
 
             open_list = [r_var for r_var, value in r.items() if value == 1]  # list of all (j,h,s) s.t. r[j,h,s] = 1
 
+            trigger = -1
+
             ###################################################################
             ## 1 step: enlarge size of open facilities using safety stock ##
             if max(n.values()) > 0:  # at least one facility is using safety stock --> leader cost to decrease
@@ -768,123 +775,155 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
                     if h != 3 and B_used + c[j, h + 1] - c[j, h] <= B:  # upgrade its size if possible and check if budjet is available
                         r[j, h, s] = 0
                         r[j, h + 1, s] = 1
+                        n[j, h, s] = 0
                         B_used += c[j, h + 1] - c[j, h]
-                        print('facility j = ' + str(j) + ' has been enlarged to size ' + str(h + 1))
-
-            ############################################################
-            ## 2 step: attempt to modify Y by closing or opening some facility ##
-            ## This is done according to two differet triggers: 2.1 and 2.2
-
-            ## 2.1 step: compute percentage of stock usage w.r.t. facility capacity according to follower behaviour Z
-            ## close facility with lowest percentage use and open the closest facility to the one with biggest n value.
-            j_load = get_facility_load(OP_opt_vars, SP_opt_vars, params)
-            j_usage = get_j_usage(open_list, j_load, capf)
-
-            j_to_close_list = sorted(j_usage.items(), key=operator.itemgetter(1), reverse=False)
-            j_to_help_list = [keyval for keyval in ss_used_list if keyval[1] > 0.5]
-
-            if min(j_usage.values()) < 0.4:
-                trigger = 1
-                gotit = False
-                for j1 in j_to_close_list:
-                    if gotit == True:
+                        open_list = [r_var for r_var, value in r.items() if value == 1]
+                        print('Trigger 0: facility j = ' + str(j) + ' has been enlarged to size ' + str(h + 1))
+                        trigger = 0
                         break
-                    j_to_close = j1[0]
-                    for j2 in j_to_help_list:
+
+                ############################################################
+                # 2 step: attempt to modify Y by closing or opening some facility ##
+                # This is done according to two differet triggers: 2.1 and 2.2
+
+                # 2.1 step: compute percentage of stock usage w.r.t. facility capacity according to follower behaviour Z
+                # close facility with lowest percentage use and open the closest facility to the one with biggest n value.
+                if trigger != 0:
+                    j_load = get_facility_load(OP_opt_vars, SP_opt_vars, params)
+                    j_usage = get_j_usage(open_list, j_load, capf)
+
+                    j_to_close_list = sorted(j_usage.items(), key = operator.itemgetter(1), reverse=False)
+                    j_to_help_list = [keyval for keyval in ss_used_list if keyval[1] > 0.5]
+
+                if min(j_usage.values()) < 0.4 and trigger != 0:
+                    trigger = 1
+                    gotit = False
+                    for j1 in j_to_close_list:
                         if gotit == True:
                             break
-                        j_to_help = j2[0][0]
+                        j_to_close = j1[0]
+                        for j2 in j_to_help_list:
+                            if gotit == True:
+                                break
+                            j_to_help = j2[0][0]
+                            closest_facility_list = get_closest_facility_list(j_to_help, F, dist)
+                            open_list = [r_var for r_var, value in r.items() if value == 1]
+                            for j3 in closest_facility_list:
+                                if j3[0] not in [elem[0] for elem in open_list]:
+                                    if (j_to_close,j_to_help,j3[0]) not in trigger_1_black_list:
+                                        j_to_open = j3[0]
+                                        gotit = True
+                                        break
+
+
+                    print('Trigger 1: found facility to close: is facility ' + str(j_to_close))
+                    y[j_to_close] = 0
+                    h_to_close, s_to_close = find_size_and_cluster_of_j(j_to_close, H, S, open_list)
+                    r[j_to_close, h_to_close, s_to_close] = 0
+                    print('Trigger 1: found facility to help: is facility ' + str(j_to_help))
+                    y[j_to_open] = 1
+                    r[j_to_open, h_to_close, s_to_close] = 1
+                    print('Trigger 1: found facility to open: is facility ' + str(j_to_open))
+
+                # 2.2 step: Help facility with the biggest ss usage by opening a new facility as close as possible
+                elif max(n.values()) > 0.3 and trigger != 0:
+                    trigger = 2
+                    gotit = False
+                    if not j_to_help_list: # if this list is actually empty stop
+                        print('facility to help list is EMPTY -- heuristic stops here')
+                        break
+                    for j in j_to_help_list:
+                        if gotit == True:
+                            break
+                        j_to_help = j[0][0]
+
+                        # open the facility closest to j
                         closest_facility_list = get_closest_facility_list(j_to_help, F, dist)
-                        for j3 in closest_facility_list:
-                            if j3[0] not in [elem[0] for elem in open_list]:
-                                if (j_to_close,j_to_help,j3[0]) not in trigger_1_black_list:
-                                    j_to_open = j3[0]
+                        open_list = [r_var for r_var, value in r.items() if value == 1]
+                        for j in closest_facility_list:
+                            if j[0] not in [elem[0] for elem in open_list]:
+                                if (j_to_help,j[0]) not in trigger_2_black_list and B_used + c[j[0], 1] <= B:
+                                    j_to_open = j[0]
                                     gotit = True
                                     break
 
 
-                print('Trigger 2.1: found facility to close: is facility ' + str(j_to_close))
-                y[j_to_close] = 0
-                h_to_close, s_to_close = find_size_and_cluster_of_j(j_to_close, H, S, open_list)
-                r[j_to_close, h_to_close, s_to_close] = 0
-                print('Trigger 2.1: found facility to help: is facility ' + str(j_to_help))
-                y[j_to_open] = 1
-                r[j_to_open, h_to_close, s_to_close] = 1
-                print('Trigger 2.1: found facility to open: is facility ' + str(j_to_open))
+                    y[j_to_open] = 1
 
-            ## 2.2 step: Help facility with the biggest ss usage by opening a new facility as close as possible
-            elif max(n.values()) > 0.3:
-                trigger = 2
-                gotit = False
-                for j in j_to_help_list:
-                    if gotit == True:
-                        break
-                    j_to_help = j[0][0]
-
-                    # open the facility closest to j
-                    closest_facility_list = get_closest_facility_list(j_to_help, F, dist)
-                    for j in closest_facility_list:
-                        if j[0] not in [elem[0] for elem in open_list]:
-                            if (j_to_help,j[0]) not in trigger_2_black_list and B_used + c[j[0], 1] <= B:
-                                j_to_open = j[0]
-                                gotit = True
-                                break
+                    h,s = find_size_and_cluster_of_j(j_to_help, H, S, open_list)
+                    r[j_to_open, 1, s] = 1
+                    print('Trigger 2: found facility to open: is facility ' + str(j_to_open))
+                    print('Trigger 2: found facility to help: is facility ' + str(j_to_help))
 
 
-                y[j_to_open] = 1
+                # New Y and R vars are give to OP for a new solution:
+                SP_opt_vars['y'] = y
+                SP_opt_vars['r'] = r
+                print('\n' + str(count) + 'th iteration of solving OP \n')
+                OP_opt_vars_old = OP_opt_vars
+                OP_opt_vars, OP_vars_list = OP_model(params, SP_opt_vars, gap_tol, OP_time_limit)
 
-                h,s = find_size_and_cluster_of_j(j_to_help, H, S, open_list)
-                r[j_to_open, 1, s] = 1
-                print('Trigger 2.2: found facility to open: is facility ' + str(j_to_open))
-                print('Trigger 2.2: found facility to help: is facility ' + str(j_to_help))
+                SP_optval_k = evalute_SP_objval(OP_opt_vars,SP_opt_vars,params, gap_tol)
+                SP_obj_evolution[count] = SP_optval_k
 
-
-            # New Y and R vars are give to OP for a new solution:
-            SP_opt_vars['y'] = y
-            SP_opt_vars['r'] = r
-            print('\n' + str(count) + 'th iteration of solving OP \n')
-            OP_opt_vars, OP_vars_list = OP_model(params, SP_opt_vars, gap_tol, OP_time_limit)
-
-            SP_optval_k = evalute_SP_objval(OP_opt_vars,SP_opt_vars,params, gap_tol)
-            SP_obj_evolution[count] = SP_optval_k
-
-            if SP_optval_k < best_obj:
-                print('Heuristic iteration DID SUCCEED reducing obj val!')
-                best_obj = SP_optval_k
-                best_sol = (OP_opt_vars,SP_opt_vars)
-                best_k = count
-                # update open list
-                open_list = [r_var for r_var, value in r.items() if value == 1]
-                print('open list is: ')
-                print(open_list)
-            else:
-                print('Heuristic iteration did not succeed in reducing obj val')
-                if trigger == 1:
-                    trigger_1_black_list.append((j_to_close,j_to_help,j_to_open))
-                    y[j_to_close] = 1
-                    r[j_to_close, h_to_close, s_to_close] = 1
-                    y[j_to_open] = 0
-                    r[j_to_open, h_to_close, s_to_close] = 0
-                    n[j_to_open, h_to_close, s_to_close] = 0
-                    SP_opt_vars['y'] = y
-                    SP_opt_vars['r'] = r
-                    SP_opt_vars['n'] = n
+                if SP_optval_k < best_obj:
+                    print('Heuristic iteration DID SUCCEED reducing obj val!')
+                    best_obj = SP_optval_k
+                    best_k = count
+                    # update open list
                     open_list = [r_var for r_var, value in r.items() if value == 1]
                     print('open list is: ')
                     print(open_list)
-                if trigger == 2:
-                    trigger_2_black_list.append((j_to_help,j_to_open))
-                    y[j_to_open] = 0
-                    r[j_to_open, 1, s] = 0
-                    n[j_to_open, 1, s] = 0
-                    SP_opt_vars['y'] = y
-                    SP_opt_vars['r'] = r
-                    open_list = [r_var for r_var, value in r.items() if value == 1]
-                    print('open list is: ')
-                    print(open_list)
+                else:
+                    print('Heuristic iteration did not succeed in reducing obj val')
+                    if trigger == 0:
+                        trigger_0_black_list.append((j,h,s))
+                        r[j, h + 1, s] = 0
+                        r[j, h , s] = 1
+                        B_used += c[j, h] - c[j, h + 1]
+                        n[j, h + 1, s] = 0
+                        SP_opt_vars['y'] = y
+                        SP_opt_vars['r'] = r
+                        SP_opt_vars['n'] = n
+                        OP_opt_vars = OP_opt_vars_old
+                        open_list = [r_var for r_var, value in r.items() if value == 1]
+                        print('open list is: ')
+                        print(open_list)
 
+                    if trigger == 1:
+                        trigger_1_black_list.append((j_to_close,j_to_help,j_to_open))
+                        y[j_to_close] = 1
+                        r[j_to_close, h_to_close, s_to_close] = 1
+                        y[j_to_open] = 0
+                        r[j_to_open, h_to_close, s_to_close] = 0
+                        n[j_to_open, h_to_close, s_to_close] = 0
+                        SP_opt_vars['y'] = y
+                        SP_opt_vars['r'] = r
+                        SP_opt_vars['n'] = n
+                        OP_opt_vars = OP_opt_vars_old
+                        open_list = [r_var for r_var, value in r.items() if value == 1]
+                        print('open list is: ')
+                        print(open_list)
 
+                    if trigger == 2:
+                        trigger_2_black_list.append((j_to_help,j_to_open))
+                        y[j_to_open] = 0
+                        r[j_to_open, 1, s] = 0
+                        n[j_to_open, 1, s] = 0
+                        SP_opt_vars['y'] = y
+                        SP_opt_vars['r'] = r
+                        SP_opt_vars['n'] = n
+                        OP_opt_vars = OP_opt_vars_old
+                        open_list = [r_var for r_var, value in r.items() if value == 1]
+                        print('open list is: ')
+                        print(open_list)
+
+            ## hint for new heuristic develpoment
             # cluster definition may be inefficient --> attempt to change facility distribution across clusters
+
+            if trigger == -1:
+                print('facility to help list is EMPTY -- heuristic stops here')
+                break
 
     # heuristic is ended
     perc_reduction = (first_eval - best_obj) / first_eval
@@ -893,6 +932,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
     for i in list(SP_obj_evolution.values()):
         results.append(i)
 
+    print('trigger_0_black_list is: ' + str(trigger_0_black_list))
     print('trigger_1_black_list is: ' + str(trigger_1_black_list))
     print('trigger_2_black_list is: ' + str(trigger_2_black_list))
 
@@ -901,16 +941,16 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
 
 if __name__ == '__main__':
 
-    instance_name = 'inst_#' + str(2)
+    instance_name = 'inst_#' + str(3)
     maxit = 10
     SP_time_limit = 20
-    OP_time_limit = 30 # 120
+    OP_time_limit = 120
 
     results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit)
 
     itercols_name = ['iter_#'+str(i) for i in range(1,maxit+1)]
 
-    df_results = pd.Series(results, columns = ['instance_name', 'first_eval', 'best_obj', 'perc_reduction', 'maxit', 'NF', 'NC', 'ND', 'NV', 'SP_time_limit', 'OP_time_limit'] + itercols_name)
+    # df_results = pd.Series(results, columns = ['instance_name', 'first_eval', 'best_obj', 'perc_reduction', 'maxit', 'NF', 'NC', 'ND', 'NV', 'SP_time_limit', 'OP_time_limit'] + itercols_name)
 
 
 
