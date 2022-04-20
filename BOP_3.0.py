@@ -737,12 +737,14 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
     print('first solution open facility list is : \n')
     print(open_list)
 
+    dist = {(a, b): disdur[(a, b)]['duration'] for (a, b) in itertools.product(N, N)}
+
     Heuristic = True
     if Heuristic:
         print('####### Heuristic START HERE #######')
-        trigger_0_black_list = []
-        trigger_1_black_list = []
-        trigger_2_black_list = []
+        trigger_0_tabu_list = []
+        trigger_1_tabu_list = []
+        trigger_2_tabu_list = []
         for count in range(1,maxit):
 
             print('Iteration n. '+str(count))
@@ -751,23 +753,29 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
             # Heuristic iteration start:
             x = SP_opt_vars['x']
             y = SP_opt_vars['y']
-            n = SP_opt_vars['n']
             r = SP_opt_vars['r']
+            n = SP_opt_vars['n']
+
+            n_before_attempt = n.copy()
 
             B_used = sum(c[j, h] * r[j, h, s] for j in F for h in H for s in S)
-
-            dist = {(a, b): disdur[(a, b)]['duration'] for (a, b) in itertools.product(N, N)}
-
             open_list = [r_var for r_var, value in r.items() if value == 1]  # list of all (j,h,s) s.t. r[j,h,s] = 1
 
-            trigger = -1
+            ss_used_list = [(n_var, value) for n_var, value in n.items() if value > 0]  # list of all facilities j with n_j > 0
+            ss_used_list.sort(key=lambda x: x[1], reverse=True)  # list is sort in descending order w.r.t n_j
+
+            j_load = get_facility_load(OP_opt_vars, SP_opt_vars, params)
+            j_usage = get_j_usage(open_list, j_load, capf)
+
+            j_to_close_list = sorted(j_usage.items(), key=operator.itemgetter(1), reverse=False)
+            j_to_help_list = [keyval for keyval in ss_used_list if keyval[1] > 0.5]
+
+            trigger = -1 # set trigger to none-value
 
             ###################################################################
             ## 1 step: enlarge size of open facilities using safety stock ##
             if max(n.values()) > 0:  # at least one facility is using safety stock --> leader cost to decrease
-                ss_used_list = [(n_var, value) for n_var, value in n.items() if
-                                value > 0]  # list of all facilities j with n_j > 0
-                ss_used_list.sort(key=lambda x: x[1], reverse=True)  # list is sort in descending order w.r.t n_j
+
                 for elem in ss_used_list:  # for each of these facilities where safaty stock is used (in descending oreder w.r.t n_j)
                     j = elem[0][0]
                     h = elem[0][1]
@@ -788,12 +796,6 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
 
                 # 2.1 step: compute percentage of stock usage w.r.t. facility capacity according to follower behaviour Z
                 # close facility with lowest percentage use and open the closest facility to the one with biggest n value.
-                if trigger != 0:
-                    j_load = get_facility_load(OP_opt_vars, SP_opt_vars, params)
-                    j_usage = get_j_usage(open_list, j_load, capf)
-
-                    j_to_close_list = sorted(j_usage.items(), key = operator.itemgetter(1), reverse=False)
-                    j_to_help_list = [keyval for keyval in ss_used_list if keyval[1] > 0.5]
 
                 if min(j_usage.values()) < 0.4 and trigger != 0:
                     trigger = 1
@@ -810,7 +812,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
                             open_list = [r_var for r_var, value in r.items() if value == 1]
                             for j3 in closest_facility_list:
                                 if j3[0] not in [elem[0] for elem in open_list]:
-                                    if (j_to_close,j_to_help,j3[0]) not in trigger_1_black_list:
+                                    if (j_to_close,j_to_help,j3[0]) not in trigger_1_tabu_list:
                                         j_to_open = j3[0]
                                         gotit = True
                                         break
@@ -842,7 +844,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
                         open_list = [r_var for r_var, value in r.items() if value == 1]
                         for j in closest_facility_list:
                             if j[0] not in [elem[0] for elem in open_list]:
-                                if (j_to_help,j[0]) not in trigger_2_black_list and B_used + c[j[0], 1] <= B:
+                                if (j_to_help,j[0]) not in trigger_2_tabu_list and B_used + c[j[0], 1] <= B:
                                     j_to_open = j[0]
                                     gotit = True
                                     break
@@ -877,42 +879,39 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
                 else:
                     print('Heuristic iteration did not succeed in reducing obj val')
                     if trigger == 0:
-                        trigger_0_black_list.append((j,h,s))
+                        trigger_0_tabu_list.append((j,h,s))
                         r[j, h + 1, s] = 0
                         r[j, h , s] = 1
                         B_used += c[j, h] - c[j, h + 1]
-                        n[j, h + 1, s] = 0
                         SP_opt_vars['y'] = y
                         SP_opt_vars['r'] = r
-                        SP_opt_vars['n'] = n
+                        SP_opt_vars['n'] = n_before_attempt
                         OP_opt_vars = OP_opt_vars_old
                         open_list = [r_var for r_var, value in r.items() if value == 1]
                         print('open list is: ')
                         print(open_list)
 
                     if trigger == 1:
-                        trigger_1_black_list.append((j_to_close,j_to_help,j_to_open))
+                        trigger_1_tabu_list.append((j_to_close,j_to_help,j_to_open))
                         y[j_to_close] = 1
                         r[j_to_close, h_to_close, s_to_close] = 1
                         y[j_to_open] = 0
                         r[j_to_open, h_to_close, s_to_close] = 0
-                        n[j_to_open, h_to_close, s_to_close] = 0
                         SP_opt_vars['y'] = y
                         SP_opt_vars['r'] = r
-                        SP_opt_vars['n'] = n
+                        SP_opt_vars['n'] = n_before_attempt
                         OP_opt_vars = OP_opt_vars_old
                         open_list = [r_var for r_var, value in r.items() if value == 1]
                         print('open list is: ')
                         print(open_list)
 
                     if trigger == 2:
-                        trigger_2_black_list.append((j_to_help,j_to_open))
+                        trigger_2_tabu_list.append((j_to_help,j_to_open))
                         y[j_to_open] = 0
                         r[j_to_open, 1, s] = 0
-                        n[j_to_open, 1, s] = 0
                         SP_opt_vars['y'] = y
                         SP_opt_vars['r'] = r
-                        SP_opt_vars['n'] = n
+                        SP_opt_vars['n'] = n_before_attempt
                         OP_opt_vars = OP_opt_vars_old
                         open_list = [r_var for r_var, value in r.items() if value == 1]
                         print('open list is: ')
@@ -932,19 +931,19 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
     for i in list(SP_obj_evolution.values()):
         results.append(i)
 
-    print('trigger_0_black_list is: ' + str(trigger_0_black_list))
-    print('trigger_1_black_list is: ' + str(trigger_1_black_list))
-    print('trigger_2_black_list is: ' + str(trigger_2_black_list))
+    print('trigger_0_tabu_list is: ' + str(trigger_0_tabu_list))
+    print('trigger_1_tabu_list is: ' + str(trigger_1_tabu_list))
+    print('trigger_2_tabu_list is: ' + str(trigger_2_tabu_list))
 
     return results
 
 
 if __name__ == '__main__':
 
-    instance_name = 'inst_#' + str(3)
-    maxit = 10
+    instance_name = 'inst_#' + str(2)
+    maxit = 2
     SP_time_limit = 20
-    OP_time_limit = 120
+    OP_time_limit = 60 # (3) --> 300 sec
 
     results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit)
 
