@@ -3,10 +3,10 @@
 Minimize
  
 Subject To
- C5_new_nj_iff_facility_is_open(2,3,8): - r(2,3,8) + n(2,3,8) <= 0
+ C5_new_nj_iff_facility_is_open(0,3,2): - r(0,3,2) + n(0,3,2) <= 0
 Bounds
- r(2,3,8) = 0
- n(2,3,8) >= 0.7733333333333333
+ r(0,3,2) = 0
+ n(0,3,2) >= 0.6933333333333334
 Binaries
- r(2,3,8)
+ r(0,3,2)
 End

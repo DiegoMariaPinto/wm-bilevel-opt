@@ -940,16 +940,53 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
 
 if __name__ == '__main__':
 
-    instance_name = 'inst_#' + str(2)
-    maxit = 2
-    SP_time_limit = 20
-    OP_time_limit = 60 # (3) --> 300 sec
 
-    results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit)
+    test_one_inst = False
+    if test_one_inst:
+        instance_name = 'inst_#' + str(2)
+        maxit = 2
+        SP_time_limit = 20
+        OP_time_limit = 60 # (3) --> 300 sec
 
-    itercols_name = ['iter_#'+str(i) for i in range(1,maxit+1)]
+        results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit)
 
-    # df_results = pd.Series(results, columns = ['instance_name', 'first_eval', 'best_obj', 'perc_reduction', 'maxit', 'NF', 'NC', 'ND', 'NV', 'SP_time_limit', 'OP_time_limit'] + itercols_name)
+        itercols_name = ['iter_#'+str(i) for i in range(1,maxit+1)]
+
+    test_all_inst = True
+    if test_all_inst:
+
+        results = []
+        for instance_num in [1,2,3,4,5,6,7,8,9,10,11,12,13,15,15]:
+
+            instance_name = 'inst_#' + str(instance_num)
+            data = load_json_instance('./instances', instance_name + '.json')
+            inst_data = data['inst_data']
+            NC = inst_data['NC']
+
+            if NC == 15:
+                SP_time_limit = 25
+                OP_time_limit = 100
+            elif NC == 25:
+                SP_time_limit = 35
+                OP_time_limit = 400
+            else:
+                SP_time_limit = 50
+                OP_time_limit = 800
+
+            maxit = 10
+
+            inst_results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit)
+
+            results.append(inst_results)
+
+        itercols_name = ['iter_#' + str(i) for i in range(1, maxit + 1)]
+        df_columns = ['instance_name', 'first_eval', 'best_obj', 'perc_reduction', 'maxit', 'NF', 'NC', 'ND', 'NV', 'SP_time_limit', 'OP_time_limit'] + itercols_name
+        df_results = pd.DataFrame(results, columns = df_columns)
+
+        df_results.to_excel('heuristic_results.xlsx')
+
+
+
 
 
 

@@ -226,9 +226,9 @@ if __name__ == '__main__':
     # NV number of vehicles
 
     # sets dimensions are (NF [number of facilities], NC [number of clients], ND [number of depots], NV [number of vehicles])
-    sets_dimension_list = [(5,15,2,4), (10,30,5,8), (15,60,8,12)]
+    sets_dimension_list = [(5,15,2,4), (10,25,5,8), (15,40,8,12)]
 
-    instance_num = 1
+    instance_num = 5
 
     size_dimension = 0
     for sets_dimension in sets_dimension_list:
