@@ -123,35 +123,69 @@ def get_ODbyOSM(nodes):
 
 def get_folium_map(nodes):
     # coordinate del centro mappa : una località al centro di Roma
-    Lat_c = 41.93989132187777
-    Long_c = 12.57960310938201
+    Lat_c = 41.94298561949368
+    Long_c = 12.60683386876551
 
+    tiles = None
     # creo la mappa centrata sul centro mappa
-    mappa = folium.Map(location=[Lat_c, Long_c], zoom_start=4)
+    m = folium.Map(location=[Lat_c, Long_c], tiles = tiles, zoom_start=10)
 
-    colors = {'client': 'red', 'facility': 'blue', 'depot': 'black'}
+
+    tiles_url = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png"
+    # tiles_url = "https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png"
+
+    tile_layer = folium.TileLayer(
+        tiles= tiles_url,
+        attr='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        max_zoom=19,
+        name='Positron',
+        control=False,
+        opacity=0.7
+    )
+    tile_layer.add_to(m)
+
+    geojson_filename = 'limits_IT_regions.geojson'
+    with open(geojson_filename, 'r') as geojson_file:
+        region_borders_layer = json.load(geojson_file)
+
+    geojson_filename = 'limits_IT_provinces.geojson'
+    with open(geojson_filename, 'r') as geojson_file:
+        provinces_borders_layer = json.load(geojson_file)
+
+    style =  {'fillColor': '#00000000', 'linecolor': 'blue'}
+    folium.GeoJson(region_borders_layer, style_function=lambda x: style).add_to(m)
+
+    style = {'fillColor': '#00000000', 'linecolor': 'blue'}
+    folium.GeoJson(provinces_borders_layer, style_function=lambda x: style).add_to(m)
+
+    folium.LayerControl().add_to(m)
+
+    colors = {'client': 'green',    'facility': 'orange', 'depot': 'blue'}
+    icons  = {'client': 'refresh',  'facility': 'recycle','depot': 'truck'}
 
     nodes_list = nodes.values.tolist()
     for node in nodes_list:
         node_name = node[0]
-        lat = node[1]
+        lat  = node[1]
         long = node[2]
-        location = ([lat, long])
-        node_type = node[3]
+        location   = ([lat, long])
+        node_type  = node[3]
         node_color = colors[node_type]
+        node_icon  = icons[node_type]
 
         """ aggiungo i marker dei nodi"""
         folium.Marker(
             location=location,
             popup=node_name,
-            icon=folium.Icon(color=node_color, icon='user', prefix='fa')
-        ).add_to(mappa)
+            icon=folium.Icon(color=node_color, icon=node_icon, prefix='fa'),
+            draggable = True
+        ).add_to(m)
 
     output_file = "map.html"
-    mappa.save(output_file)
+    m.save(output_file)
     webbrowser.open(output_file, new=2)  # open in new tab
 
-    return mappa._repr_html_()
+    return m._repr_html_()
 
 
 def get_node_region(lat, long):
@@ -215,52 +249,88 @@ def load_json_instance(target_path, target_file):
 
 if __name__ == '__main__':
 
-    clients = pd.read_excel('All_clients.xlsx', index_col=[0])
-    facilities = pd.read_excel('All_facilities.xlsx', index_col=[0])
+    REMIND_clients    = pd.read_excel('All_clients.xlsx', index_col=[0])
+    REMIND_facilities = pd.read_excel('All_facilities.xlsx', index_col=[0])
 
-    # set instance name, number of clients, facilities and depot for new instance creation
+    create_realistic_instance = False
+    if create_realistic_instance:
+        NF = 15
+        NC = 68
+        ND = 8
+        NV = 20
 
-    # NF number of facilities
-    # NC number of clients
-    # ND number of depots
-    # NV number of vehicles
+        instance_name = 'inst_realistic'
+        random_state = 1529810
 
-    # sets dimensions are (NF [number of facilities], NC [number of clients], ND [number of depots], NV [number of vehicles])
-    sets_dimension_list = [(5,15,2,4), (10,25,5,8), (15,40,8,12)]
+        facilities = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='facility')
+        clients    = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='client')
 
-    instance_num = 5
+        depots = REMIND_facilities.sample(n=ND, random_state=random_state)
+        depots['node_type'] = 'depot'
 
-    size_dimension = 0
-    for sets_dimension in sets_dimension_list:
-        NF = sets_dimension[0]
-        NC = sets_dimension[1]
-        ND = sets_dimension[2]
-        NV = sets_dimension[3]
-        for instance in range(size_dimension*instance_num + 1, size_dimension*instance_num + instance_num+1):
-            instance_name = 'inst_#'+str(instance)
-            random_state = instance
-            nodes, disdur = create_instance(clients, facilities, NF, NC, ND, random_state)
+        nodes = facilities.append(clients)
+        nodes = nodes.append(depots)
 
-            nodes_info = nodes.to_dict()
-            inst_data = {'NF': NF, 'NC': NC, 'ND': ND, 'NV': NV}
-            disdur_tosave = dumps({str(k): v for k, v in disdur.items()})
-            instance_data = {'nodes_info': nodes_info, 'inst_data': inst_data, 'disdur_dict' : disdur_tosave}
+        nodes.reset_index(inplace=True)
+        nodes['node'] = nodes.index
+        nodes.drop(columns=['level_0', 'index'], inplace=True)
 
-            write_json_instance('./instances', instance_name+'.json', instance_data)
-            load_json_instance('./instances',  instance_name+'.json')
+        instace_df, disdur = get_ODbyOSM(nodes)
 
-        size_dimension += 1
+        nodes_info = nodes.to_dict()
+        inst_data = {'NF': NF, 'NC': NC, 'ND': ND, 'NV': NV}
+        disdur_tosave = dumps({str(k): v for k, v in disdur.items()})
+        instance_data = {'nodes_info': nodes_info, 'inst_data': inst_data, 'disdur_dict': disdur_tosave}
 
+        write_json_instance('./instances', instance_name + '.json', instance_data)
+        load_json_instance('./instances', instance_name + '.json')
 
+    create_instances = False
+    if create_instances:
+        # set instance name, number of clients, facilities and depot for new instance creation
 
-    display_map = False
+        # NF number of facilities
+        # NC number of clients
+        # ND number of depots
+        # NV number of vehicles
+
+        # sets dimensions are (NF [number of facilities], NC [number of clients], ND [number of depots], NV [number of vehicles])
+        sets_dimension_list = [(5,15,2,4), (10,25,5,8), (15,40,8,12)]
+
+        instance_num = 5
+
+        size_dimension = 0
+        for sets_dimension in sets_dimension_list:
+            NF = sets_dimension[0]
+            NC = sets_dimension[1]
+            ND = sets_dimension[2]
+            NV = sets_dimension[3]
+            for instance in range(size_dimension*instance_num + 1, size_dimension*instance_num + instance_num+1):
+                instance_name = 'inst_#'+str(instance)
+                random_state = instance
+                nodes, disdur = create_instance(REMIND_clients, REMIND_facilities, NF, NC, ND, random_state)
+
+                nodes_info = nodes.to_dict()
+                inst_data = {'NF': NF, 'NC': NC, 'ND': ND, 'NV': NV}
+                disdur_tosave = dumps({str(k): v for k, v in disdur.items()})
+                instance_data = {'nodes_info': nodes_info, 'inst_data': inst_data, 'disdur_dict' : disdur_tosave}
+
+                write_json_instance('./instances', instance_name+'.json', instance_data)
+                load_json_instance('./instances',  instance_name+'.json')
+
+            size_dimension += 1
+
+    # help(folium.Icon)
+
+    display_map = True
     if display_map:
-        instance_name = 'inst_#'+str(1)
+        instance_name = 'inst_realistic'
         instance_data = load_json_instance('./instances', instance_name + '.json')
-        nodes = pd.DataFrame.from_dict(instance_data[nodes_info])  ## FIX !!
+        nodes = pd.DataFrame.from_dict(instance_data['nodes_info'])  ## FIX !!
         nodes.lat = pd.to_numeric(nodes.lat)
         nodes.long = pd.to_numeric(nodes.long)
         start = time.time()
         print('start map creation')
-        mappa = get_folium_map(nodes)
+        m = get_folium_map(nodes)
         print('map created in ' + str(time.time() - start))
+

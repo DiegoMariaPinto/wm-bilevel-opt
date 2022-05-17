@@ -72,6 +72,14 @@ def create_params(NF,NC,ND,NV,disdur):
     random_d = np.random.randint(100, 250, NC).tolist()  # demand of clients i in C
     d = {i: random_d[i - NF] for i in C}
 
+    #####################################################################################################
+    realistic_capacity = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='facility')['capacity_daily']
+    realistic_demand = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='client')[['demand_daily']]
+
+    realistic_demand   = realistic_demand.astype({"demand_daily": int}, errors='raise')
+    realistic_capacity = realistic_capacity.astype({"capacity_daily": int}, errors='raise')
+    ######################################################################################################
+
     # gamma vector of gamma_1,2,3
     gamma = {'1': 0.3, '2': 0.3, '3': 0.4}
 
@@ -767,7 +775,8 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
             j_load = get_facility_load(OP_opt_vars, SP_opt_vars, params)
             j_usage = get_j_usage(open_list, j_load, capf)
 
-            j_to_close_list = sorted(j_usage.items(), key=operator.itemgetter(1), reverse=False)
+            j_to_close_list = {k: v for (k, v) in j_usage.items() if v < 0.4}
+            j_to_close_list = sorted(j_to_close_list.items(), key=operator.itemgetter(1), reverse=False)
             j_to_help_list = [keyval for keyval in ss_used_list if keyval[1] > 0.5]
 
             trigger = -1 # set trigger to none-value
@@ -781,14 +790,15 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
                     h = elem[0][1]
                     s = elem[0][2]
                     if h != 3 and B_used + c[j, h + 1] - c[j, h] <= B:  # upgrade its size if possible and check if budjet is available
-                        r[j, h, s] = 0
-                        r[j, h + 1, s] = 1
-                        n[j, h, s] = 0
-                        B_used += c[j, h + 1] - c[j, h]
-                        open_list = [r_var for r_var, value in r.items() if value == 1]
-                        print('Trigger 0: facility j = ' + str(j) + ' has been enlarged to size ' + str(h + 1))
-                        trigger = 0
-                        break
+                        if (j,h,s) not in trigger_0_tabu_list:
+                            r[j, h, s] = 0
+                            r[j, h + 1, s] = 1
+                            n[j, h, s] = 0
+                            B_used += c[j, h + 1] - c[j, h]
+                            open_list = [r_var for r_var, value in r.items() if value == 1]
+                            print('Trigger 0: facility j = ' + str(j) + ' has been enlarged to size ' + str(h + 1))
+                            trigger = 0
+                            break
 
                 ############################################################
                 # 2 step: attempt to modify Y by closing or opening some facility ##
@@ -800,6 +810,11 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
                 if min(j_usage.values()) < 0.4 and trigger != 0:
                     trigger = 1
                     gotit = False
+
+                    if not j_to_help_list: # if this list is actually empty stop
+                        print('facility to help list is EMPTY -- heuristic stops here')
+                        break
+
                     for j1 in j_to_close_list:
                         if gotit == True:
                             break
@@ -817,6 +832,9 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
                                         gotit = True
                                         break
 
+                    if gotit == False:
+                        print('All option explored -- heuristic stops here')
+                        break
 
                     print('Trigger 1: found facility to close: is facility ' + str(j_to_close))
                     y[j_to_close] = 0
@@ -849,6 +867,9 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
                                     gotit = True
                                     break
 
+                    if gotit == False:
+                        print('All option explored -- heuristic stops here')
+                        break
 
                     y[j_to_open] = 1
 
@@ -943,10 +964,23 @@ if __name__ == '__main__':
 
     test_one_inst = False
     if test_one_inst:
-        instance_name = 'inst_#' + str(2)
-        maxit = 2
-        SP_time_limit = 20
-        OP_time_limit = 60 # (3) --> 300 sec
+        instance_num = 7
+        instance_name = 'inst_#' + str(instance_num)
+        data = load_json_instance('./instances', instance_name + '.json')
+        inst_data = data['inst_data']
+        NC = inst_data['NC']
+
+        if NC == 15:
+            SP_time_limit = 25
+            OP_time_limit = 60
+        elif NC == 25:
+            SP_time_limit = 35
+            OP_time_limit = 400
+        else:
+            SP_time_limit = 50
+            OP_time_limit = 800
+
+        maxit = 10
 
         results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit)
 
@@ -956,7 +990,7 @@ if __name__ == '__main__':
     if test_all_inst:
 
         results = []
-        for instance_num in [1,2,3,4,5,6,7,8,9,10,11,12,13,15,15]:
+        for instance_num in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]:
 
             instance_name = 'inst_#' + str(instance_num)
             data = load_json_instance('./instances', instance_name + '.json')
@@ -984,6 +1018,8 @@ if __name__ == '__main__':
         df_results = pd.DataFrame(results, columns = df_columns)
 
         df_results.to_excel('heuristic_results.xlsx')
+
+        df_results_load = pd.read_excel('heuristic_results.xlsx')
 
 
 
