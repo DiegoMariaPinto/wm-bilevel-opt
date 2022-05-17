@@ -1,4 +1,6 @@
 import itertools
+import random
+
 from gurobipy import *
 from gurobipy import quicksum
 from gurobipy import GRB
@@ -8,9 +10,11 @@ import pandas as pd
 import numpy as np
 from Get_instances import load_json_instance
 
-np.random.seed(0)
 
 def create_params(NF,NC,ND,NV,disdur):
+
+    np.random.seed(0)
+    random.seed((0))
 
     # corresponding sets:
     F = list(range(NF))  # facility list
@@ -43,7 +47,7 @@ def create_params(NF,NC,ND,NV,disdur):
     t = {(a, b): disdur[(a, b)]['duration'] for (a, b) in itertools.product(N, N)}
     truck_em_coeff = 1.2
     em_t = {(a, b): truck_em_coeff * disdur[(a, b)]['distance'] for (a, b) in itertools.product(N, N)}
-    random_cv = np.random.randint(2500, 4500, NV).tolist()  # vehicles capacities
+    random_cv = np.random.randint(100, 150, NV).tolist()  # vehicles capacities
     cv = {l: random_cv[l] for l in V}
     random_T = np.random.randint(600, 900, NV).tolist()  # maximum servicing times per tour (electic or combustion) 3,8
     T = {l: random_T[l] for l in V}
@@ -286,13 +290,13 @@ def SP_model(params, OP_vars, gap_tol, time_limit, get_first_sol_SP=False, SP_va
             vars_opt.append([var.VarName, var.x])
             if var.VarName.startswith('x'):
                 x_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
-            if var.VarName.startswith('r'):
+            elif var.VarName.startswith('r'):
                 r_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
-            if var.VarName.startswith('y'):
+            elif var.VarName.startswith('y'):
                 y_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
-            if var.VarName.startswith('n'):
+            elif var.VarName.startswith('n'):
                 n_opt_dict[eval(var.VarName[2:-1])] = var.x
-            if var.VarName.startswith('q'):
+            elif var.VarName.startswith('q'):
                 q_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
 
         vars_opt = pd.DataFrame.from_records(vars_opt, columns=["variable", "value"])
@@ -349,6 +353,8 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     y = SP_vars['y']
     r = SP_vars['r']
 
+    big_M = max(cv.values())
+
     # OP Variables
 
     h = {(l, a): m.addVar(vtype=GRB.BINARY, name='h({},{})'.format(l, a))
@@ -363,6 +369,13 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     v = {(l,j): m.addVar(lb=0, vtype=GRB.CONTINUOUS, name='v({},{})'.format(l,j))
          for l in V for j in F}
 
+    p = {(l,a): m.addVar(lb=0, vtype=GRB.CONTINUOUS, name='p({},{})'.format(l,a))
+    for l in V for a in C}
+
+    rho = {(l,a): m.addVar(lb=0, vtype=GRB.CONTINUOUS, name='rho({},{})'.format(l,a))
+    for l in V for a in C}
+
+
     # obj.fun. linearization var
     w = m.addVar(vtype=GRB.CONTINUOUS, obj=1, name='w')
 
@@ -373,7 +386,10 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
                      name='C_8_({})'.format(l))
     # (9)
     for i in C:
-        m.addConstr(quicksum(h[l, i] for l in V) == 1, name='C_9_({})'.format(i))
+        m.addConstr(quicksum(h[l, i] for l in V) >= 1, name='C_9_({})'.format(i))
+
+    for i in C:
+        m.addConstr(d[i] <= quicksum(cv[l]*h[l,i] for l in V), name = 'C_soddisfacimento({})'.format(i))
 
     # (10)
     for l in V:
@@ -383,7 +399,7 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
         m.addConstr(quicksum(h[l, j] for j in F) == 1, name='C_10_bis_({})'.format(l))
     # (11)
     for l in V:
-        m.addConstr(quicksum(h[l, i] * d[i] for i in C) <= cv[l], name='C_11_({})'.format(l))
+        m.addConstr(quicksum(rho[l,i] for i in C) <= cv[l], name='C_11_({})'.format(l))
     # 12)
     for k in D:
         for l in V:
@@ -454,10 +470,24 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
         for a in N:
             m.addConstr(e[l,a]<=NC*h[l,a], name='controllo_ordine({},{})'.format(l,a))
     ############################################################################################
+    for i in C:
+        m.addConstr(d[i] == quicksum(p[l,i] for l in V), 'soddisfa_domanda({})'.format(i))
 
     for l in V:
         for j in F:
-            m.addConstr((h[l, j] == 1) >> (quicksum(h[(l, i)]*d[i] for i in C) == v[l,j]), name='load_of_l_to_j({},{})'.format(l,j))
+            m.addConstr((h[l,i]==1)>>(quicksum(rho[l,i] for i in C) == v[l,j]), name='load_of_l_to_j({},{})'.format(l,j))
+
+    for l in V:
+        for i in C:
+            m.addConstr(rho[l,i] <= big_M*h[l,i], name='linearizzazione_p_1({},{})'.format(l,i))
+
+    for l in V:
+        for i in C:
+            m.addConstr(rho[l,i] >= p[l,i]-big_M*(1-h[l,i]), name = 'linearizzazione_p_2({},{})'.format(l, i))
+
+    for l in V:
+        for i in C:
+            m.addConstr(rho[l,i] <= p[l,i], name = 'linearizzazione_p_3({},{})'.format(l, i))
 
     for j in F:
             m.addConstr(quicksum(v[l,j] for l in V) <= quicksum(r[j,h,s]*capf[j,h] for h in H for s in S), name='load_of_j({})'.format(j))
@@ -534,34 +564,44 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
         z_opt_dict = {}
         e_opt_dict = {}
         v_opt_dict = {}
+        p_opt_dict = {}
+        rho_opt_dict = {}
 
         for var in m.getVars():
             vars_opt.append([var.VarName, var.x])
             if var.VarName.startswith('h'):
                 h_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
-            if var.VarName.startswith('z'):
+            elif var.VarName.startswith('z'):
                 z_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
-            if var.VarName.startswith('e'):
+            elif var.VarName.startswith('e'):
                 e_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
-            if var.VarName.startswith('v'):
+            elif var.VarName.startswith('v'):
                 v_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
+            elif var.VarName.startswith('p'):
+                v_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
+            elif var.VarName.startswith('rho'):
+                v_opt_dict[eval(var.VarName[4:-1])] = round(var.x)
 
         vars_opt = pd.DataFrame.from_records(vars_opt, columns=["variable", "value"])
         vars_opt.to_excel('risultati_SP.xlsx')
 
-        h_opt = vars_opt[vars_opt['variable'].str.contains("h", na=False)]
+        h_opt = vars_opt[vars_opt['variable'].str.startswith("h", na=False)]
         z_opt = vars_opt[vars_opt['variable'].str.contains("z", na=False)]
         e_opt = vars_opt[vars_opt['variable'].str.contains("e", na=False)]
         v_opt = vars_opt[vars_opt['variable'].str.contains("v", na=False)]
+        p_opt = vars_opt[vars_opt['variable'].str.contains("p", na=False)]
+        rho_opt = vars_opt[vars_opt['variable'].str.contains("rho", na=False)]
 
         h_opt['value'].apply(pd.to_numeric)
         z_opt['value'].apply(pd.to_numeric)
         e_opt['value'].apply(pd.to_numeric)
         v_opt['value'].apply(pd.to_numeric)
+        p_opt['value'].apply(pd.to_numeric)
+        rho_opt['value'].apply(pd.to_numeric)
 
-        df_vars_list = [h_opt, z_opt, e_opt, v_opt]
+        df_vars_list = [h_opt, z_opt, e_opt, v_opt, p_opt, rho_opt]
 
-        opt_vars = {'h': h_opt_dict, 'z': z_opt_dict, 'e': e_opt_dict, 'v': v_opt_dict}
+        opt_vars = {'h': h_opt_dict, 'z': z_opt_dict, 'e': e_opt_dict, 'v': v_opt_dict, 'p': p_opt_dict, 'rho': rho_opt_dict}
 
         return opt_vars, df_vars_list
 
@@ -683,6 +723,9 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
     NC = inst_data['NC']
     ND = inst_data['ND']
     NV = inst_data['NV']
+
+    NV = 30
+
     params = create_params(NF, NC, ND, NV, disdur)
 
     F = params['generic_params']['F']
@@ -962,9 +1005,9 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit):
 if __name__ == '__main__':
 
 
-    test_one_inst = False
+    test_one_inst = True
     if test_one_inst:
-        instance_num = 7
+        instance_num = 2
         instance_name = 'inst_#' + str(instance_num)
         data = load_json_instance('./instances', instance_name + '.json')
         inst_data = data['inst_data']
@@ -986,7 +1029,7 @@ if __name__ == '__main__':
 
         itercols_name = ['iter_#'+str(i) for i in range(1,maxit+1)]
 
-    test_all_inst = True
+    test_all_inst = False
     if test_all_inst:
 
         results = []
