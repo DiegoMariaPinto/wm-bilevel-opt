@@ -77,11 +77,11 @@ def create_params(NF,NC,ND,NV,disdur):
     d = {i: random_d[i - NF] for i in C}
 
     #####################################################################################################
-    realistic_capacity = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='facility')['capacity_daily']
-    realistic_demand = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='client')[['demand_daily']]
+    #realistic_capacity = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='facility')['capacity_daily']
+    #realistic_demand = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='client')[['demand_daily']]
 
-    realistic_demand   = realistic_demand.astype({"demand_daily": int}, errors='raise')
-    realistic_capacity = realistic_capacity.astype({"capacity_daily": int}, errors='raise')
+    #realistic_demand = realistic_demand.astype({"demand_daily": int}, errors='raise')
+    #realistic_capacity = realistic_capacity.astype({"capacity_daily": int}, errors='raise')
     ######################################################################################################
 
     # gamma vector of gamma_1,2,3
@@ -190,22 +190,13 @@ def SP_model(params, OP_vars, gap_tol, time_limit, get_first_sol_SP=False, SP_va
 
     c = {(j, h): FCost[h] for (j, h) in itertools.product(F, H)}
     # (6)
-    m.addConstr(quicksum(c[j, h] * r[j, h, s] for j in F for h in H for s in S) <= B, name='C6_budjet_constr')
+    m.addConstr(quicksum(c[j, h] * r[j, h, s] for j in F for h in H for s in S) <= B, name='C6_budjet')
 
     if get_first_sol_SP:
+        # (7)
         max_j_for_s = 2
         for s in S:
-            m.addConstr(quicksum(r[j,h,s] for j in F for h in H) <= max_j_for_s, name='C_min_clusters')
-
-    # # (7) constraint a minimum number of clusters
-    # for s in S:
-    #     m.addConstr(q[s] <= quicksum(x[i,s] for i in C), name='C7_min_cluster_1({})'.format(s))
-    # # (8)
-    # for s in S:
-    #     m.addConstr(NC*q[s] >= quicksum(x[i,s] for i in C), name='C8_min_cluster_2({})'.format(s))
-    # # (9)
-    # min_cluster = 3
-    # m.addConstr(quicksum(q[s] for s in S) >= min_cluster, name='C9_min_cluster_3')
+            m.addConstr(quicksum(r[j,h,s] for j in F for h in H) <= max_j_for_s, name='C7_min_clusters')
 
 
     # linearization related constraints
@@ -369,9 +360,6 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     v = {(l,j): m.addVar(lb=0, vtype=GRB.CONTINUOUS, name='v({},{})'.format(l,j))
          for l in V for j in F}
 
-    p = {(l,a): m.addVar(lb=0, vtype=GRB.CONTINUOUS, name='p({},{})'.format(l,a))
-    for l in V for a in C}
-
     rho = {(l,a): m.addVar(lb=0, vtype=GRB.CONTINUOUS, name='rho({},{})'.format(l,a))
     for l in V for a in C}
 
@@ -380,52 +368,103 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     w = m.addVar(vtype=GRB.CONTINUOUS, obj=1, name='w')
 
     # Constraints
-    # (8)
-    for l in V:
-         m.addConstr(quicksum(h[l, j] for j in F) == quicksum(z[l, k, i] for k in D for i in C),
-                     name='C_8_({})'.format(l))
-    # (9)
-    for i in C:
-        m.addConstr(quicksum(h[l, i] for l in V) >= 1, name='C_9_({})'.format(i))
-
-    for i in C:
-        m.addConstr(d[i] <= quicksum(cv[l]*h[l,i] for l in V), name = 'C_soddisfacimento({})'.format(i))
-
     # (10)
     for l in V:
-        m.addConstr(quicksum(h[l, k] for k in D) == 1, name='C_10_({})'.format(l))
-    # (10) bis
-    for l in V:
-        m.addConstr(quicksum(h[l, j] for j in F) == 1, name='C_10_bis_({})'.format(l))
+        m.addConstr(quicksum(h[l, j] for j in F) == quicksum(z[l, k, i] for k in D for i in C),
+                     name='C_10_({})'.format(l))
     # (11)
     for l in V:
-        m.addConstr(quicksum(rho[l,i] for i in C) <= cv[l], name='C_11_({})'.format(l))
-    # 12)
+        m.addConstr(quicksum(h[l, k] for k in D) == 1, name='C_11_onedeposit({})'.format(l))
+    # (12)
+    for l in V:
+        m.addConstr(quicksum(h[l, j] for j in F) == 1, name='C_12_onefacility({})'.format(l))
+    # (13)
+    for i in C:
+        m.addConstr(d[i] == quicksum(rho[l,i] for l in V), name = 'C_13_demand_satisfied({})'.format(i))
+    # (14)
+    for l in V:
+        for i in C:
+            m.addConstr(rho[l,i] <= big_M*h[l,i], name='C_14_pickup_iff_visited({},{})'.format(l,i))
+    # (15)
+    for l in V:
+        for i in C:
+            m.addConstr(rho[l, i] >= 0.1*d[i]*h[l, i], name='C_15_minimum_pickup({},{})'.format(l, i))
+    # (16)
+    for l in V:
+        m.addConstr(quicksum(rho[l,i] for i in C) <= cv[l], name='C_16_capacity_vehicle({})'.format(l))
+    # (17)
+    for l in V:
+        m.addConstr(quicksum(t[a, b] * z[l, a, b] for a in N for b in N if a != b) <= T[l],
+                    name='C_17_time_vehicle({})'.format(l))
+    # (18)
     for k in D:
         for l in V:
-            m.addConstr(quicksum(z[l, k, i] for i in C) <= a_matrix[k, l], name='C_12_({},{})'.format(k, l))
-    # 12) BIS
+            m.addConstr(quicksum(z[l, k, i] for i in C) <= a_matrix[k, l], name='C_18_exit_from_depot({},{})'.format(k, l))
+    # (19)
     for k in D:
         for l in V:
-            m.addConstr(quicksum(z[l, j, k] for j in F) <= a_matrix[k, l], name='C_12_BIS({},{})'.format(k, l))
+            m.addConstr(quicksum(z[l, j, k] for j in F) <= a_matrix[k, l], name='C_19_enter_in_depot({},{})'.format(k, l))
+    # (20)
+    for j in F:
+        for l in V:
+            m.addConstr(quicksum(z[l, j, i] for i in C) == 0, name='C_20_noclient_after_facility({},{})'.format(j, l))
+    # (21)
+    for j in F:
+        for l in V:
+            m.addConstr(quicksum(z[l, j, k] for k in D) == quicksum(z[l, i, j] for i in C),
+                        name='C_21_depot_after_facility({},{})'.format(j, l))
+    # (22)
+    for l in V:
+        for a in C:
+            m.addConstr(quicksum(z[l,a,b] for b in C+F) == h[l,a], name='C_22_fromclient_to_clientORfacility_({},{})'.format(l,a))
+    # (23)
+    for l in V:
+        for a in C:
+            m.addConstr(quicksum(z[l,b,a] for b in D+C) == h[l,a], name='C_23_toclient_from_clientORdeposit_({},{})'.format(l,a))
+    ### no loop constraints:
+    # (24)
+    for l in V:
+        for a in D + C:
+            for b in C + F:
+                m.addConstr((z[l, a, b] == 1) >> (e[l, b] == e[l, a] + 1), name='C_24_ordine({},{})'.format(l, a, b))
+    # (25)
+    for l in V:
+        for a in D:
+            m.addConstr(e[l, a] == 0, name='C_25_ordine_dep({},{})'.format(l, a))
+    # (26)
+    for l in V:
+        for a in N:
+            m.addConstr(e[l, a] <= NC * h[l, a], name='C_26_controllo_ordine({},{})'.format(l, a))
+    # (27)
+    for l in V:
+        for j in F:
+            m.addConstr((h[l,j]==1)>>(quicksum(rho[l,i] for i in C) == v[l,j]), name='C_27_load_of_l_to_j({},{})'.format(l,j))
+    # (28)
+    for j in F:
+            m.addConstr(quicksum(v[l,j] for l in V) <= quicksum(r[j,h,s]*capf[j,h] for h in H for s in S), name='load_of_j({})'.format(j))
+    # (29)
+    for l in V:
+        for j in F:
+            m.addConstr((h[l,j]==0)>>(v[l,j]==0), name='C_29_no_load_unvisited_facility({},{})'.format(l,j))
+    # NEW linearization related constraints
+    for k in D:
+        m.addConstr(
+            w >= quicksum(z[l, a, b] * t[a, b] for a in N for b in N for l in V if a_matrix[k, l] == 1)
+            , name='C_27_({})'.format(k))
+    # (9)
+    # for i in C:
+    #   m.addConstr(quicksum(h[l, i] for l in V) >= 1, name='C_9_({})'.format(i))
     # # 13)
     # for j in F:
     #     for l in V:
     #         m.addConstr(quicksum(z[l, i, j] for i in C) <= y[j], name='C_13_({},{})'.format(j, l))
 
-    # 14)
-    for j in F:
-        for l in V:
-            m.addConstr(quicksum(z[l, j, i] for i in C) == 0, name='C_14_({},{})'.format(j, l))
+
     # 15)
-    for j in F:
-        for l in V:
-            m.addConstr(quicksum(z[l, i, j] for i in C) <= h[l, j], name='C_15_({},{})'.format(j, l))
-    # 16)
-    for j in F:
-        for l in V:
-            m.addConstr(quicksum(z[l, j, k] for k in D) == quicksum(z[l, i, j] for i in C),
-                        name='C_16_({},{})'.format(j, l))
+    #for j in F:
+    #    for l in V:
+    #        m.addConstr(quicksum(z[l, i, j] for i in C) <= h[l, j], name='C_15_({},{})'.format(j, l))
+
     # # 17)
     # for i in C:
     #     for l in V:
@@ -433,68 +472,39 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     #             z[l, i, i_1] for i_1 in C if i != i_1) + quicksum(z[l, i, j] for j in F),
     #                     name='C_17_({},{})'.format(i, l))
     # 18)
-    for i in C:
-        for l in V:
-            m.addConstr(quicksum(z[l, i, i_1] for i_1 in C if i != i_1) <= 1, name='C_18_({},{})'.format(i, l))
-    # 19)
-    for l in V:
-        m.addConstr(quicksum(t[a, b] * z[l, a, b] for a in N for b in N if a != b) <= T[l], name='C_19_({})'.format(l))
+    #for i in C:
+    #    for l in V:
+    #        m.addConstr(quicksum(z[l, i, i_1] for i_1 in C if i != i_1) <= 1, name='C_18_({},{})'.format(i, l))
+
 
     # 20) no loop over same node constraint:
     # for l in V:
     #     for i in N:
     #         m.addConstr(z[l, i, i] == 0, name='C_20_no_loop({},{})'.format(l, i))
 
-    # New constraints by Pizzari and Pinto in 23/12/21 binding z and h to behave
-    # 21)
-    for l in V:
-        for a in C:
-            m.addConstr(quicksum(z[l,a,b] for b in C+F) == h[l,a], name='C_21_fromclient_to_clientORfacility_({},{})'.format(l,a))
-    # 22)
-    for l in V:
-        for a in C:
-            m.addConstr(quicksum(z[l,b,a] for b in D+C) == h[l,a], name='C_22_toclient_from_clientORdeposit_({},{})'.format(l,a))
 
     ############################################################################################
-    ### no loop constraints:
-    for l in V:
-        for a in D+C:
-            for b in C+F:
-                m.addConstr((z[l,a,b]==1)>>(e[l,b]==e[l,a]+1), name='ordine({},{})'.format(l,a,b))
 
-    for l in V:
-        for a in D:
-            m.addConstr(e[l,a]==0, name='ordine_dep({},{})'.format(l,a))
-
-    for l in V:
-        for a in N:
-            m.addConstr(e[l,a]<=NC*h[l,a], name='controllo_ordine({},{})'.format(l,a))
     ############################################################################################
-    for i in C:
-        m.addConstr(d[i] == quicksum(p[l,i] for l in V), 'soddisfa_domanda({})'.format(i))
+    #for i in C:
+    #    m.addConstr(d[i] == quicksum(p[l,i] for l in V), 'soddisfa_domanda({})'.format(i))
 
-    for l in V:
-        for j in F:
-            m.addConstr((h[l,i]==1)>>(quicksum(rho[l,i] for i in C) == v[l,j]), name='load_of_l_to_j({},{})'.format(l,j))
 
-    for l in V:
-        for i in C:
-            m.addConstr(rho[l,i] <= big_M*h[l,i], name='linearizzazione_p_1({},{})'.format(l,i))
 
-    for l in V:
-        for i in C:
-            m.addConstr(rho[l,i] >= p[l,i]-big_M*(1-h[l,i]), name = 'linearizzazione_p_2({},{})'.format(l, i))
 
-    for l in V:
-        for i in C:
-            m.addConstr(rho[l,i] <= p[l,i], name = 'linearizzazione_p_3({},{})'.format(l, i))
+    #for l in V:
+    #    for i in C:
+    #        m.addConstr(rho[l,i] >= p[l,i]-big_M*(1-h[l,i]), name = 'linearizzazione_p_2({},{})'.format(l, i))
 
-    for j in F:
-            m.addConstr(quicksum(v[l,j] for l in V) <= quicksum(r[j,h,s]*capf[j,h] for h in H for s in S), name='load_of_j({})'.format(j))
+    #for l in V:
+    #    for i in C:
+    #        m.addConstr(rho[l,i] <= p[l,i], name = 'linearizzazione_p_3({},{})'.format(l, i))
 
-    for l in V:
-        for j in F:
-            m.addConstr((h[l, j] == 0) >> (v[l, j] == 0),  name='load_of_l_not_to_j({},{})'.format(l, j))
+
+
+    #for l in V:
+    #    for j in F:
+    #        m.addConstr((h[l, j] == 0) >> (v[l, j] == 0),  name='load_of_l_not_to_j({},{})'.format(l, j))
 
     # 23)
     # for l in V:
@@ -510,11 +520,7 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     #                 quicksum(z[l, a, b] * t[a, b] for a in N for b in N for l in V if a_matrix[k_1, l] == 1)
     #                 , name='C_27_({},{})'.format(k, k_1))
 
-    # NEW linearization related constraints
-    for k in D:
-            m.addConstr(
-                w >= quicksum(z[l, a, b] * t[a, b] for a in N for b in N for l in V if a_matrix[k,l] == 1)
-                , name='C_27_({})'.format(k))
+
 
     ################# solve the formulation ####################
 
@@ -1015,7 +1021,7 @@ if __name__ == '__main__':
 
         if NC == 15:
             SP_time_limit = 25
-            OP_time_limit = 60
+            OP_time_limit = 200
         elif NC == 25:
             SP_time_limit = 35
             OP_time_limit = 400
