@@ -254,16 +254,17 @@ if __name__ == '__main__':
 
     create_realistic_instance = False
     if create_realistic_instance:
-        NF = 15
-        NC = 68
-        ND = 8
-        NV = 20
 
         instance_name = 'inst_realistic'
         random_state = 1529810
 
         facilities = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='facility')
         clients    = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='client')
+
+        NF = len(facilities)
+        NC = len(clients)
+        ND = 8
+        NV = 20
 
         depots = REMIND_facilities.sample(n=ND, random_state=random_state)
         depots['node_type'] = 'depot'
