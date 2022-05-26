@@ -14,7 +14,7 @@ import json
 from json import loads, dumps
 from ast import literal_eval
 import os
-
+import ast
 ##########################################################################################
 #########################  DOCKER SERVER on PORT 5000  ###################################
 ##########################################################################################
@@ -242,29 +242,31 @@ def load_json_instance(target_path, target_file):
     data['disdur_dict'] = loads(data['disdur_dict'])
 
     # (ii) convert loaded keys from string back to tuple
-    data['disdur_dict'] = {literal_eval(k): v for k, v in data['disdur_dict'].items()}
+    data['disdur_dict'] = {ast.literal_eval(k): v for k, v in data['disdur_dict'].items()}
 
     return data
 
 
 if __name__ == '__main__':
 
-    REMIND_clients    = pd.read_excel('All_clients.xlsx', index_col=[0])
-    REMIND_facilities = pd.read_excel('All_facilities.xlsx', index_col=[0])
+    REMIND_clients    = pd.read_excel('All_clients.xlsx', index_col=[0]).astype({'node_type': str, 'lat': float,'long': float,'node_name': str}, errors='raise')
+    REMIND_facilities = pd.read_excel('All_facilities.xlsx', index_col=[0]).astype({'node_type': str, 'lat': float,'long': float,'node_name': str}, errors='raise')
 
-    create_realistic_instance = False
+    create_realistic_instance = True
     if create_realistic_instance:
 
         instance_name = 'inst_realistic'
         random_state = 1529810
 
-        facilities = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='facility')
-        clients    = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='client')
+        facilities = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='facility').astype({'node_type': str, 'lat': float,'long': float,'node_name': str}, errors='raise')
+        clients    = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='client').astype({'node_type': str, 'lat': float,'long': float,'node_name': str}, errors='raise')
+        facilities = facilities[['node_name', 'lat', 'long', 'node_type']]
+        clients    = clients[['node_name', 'lat', 'long', 'node_type']]
 
         NF = len(facilities)
         NC = len(clients)
         ND = 8
-        NV = 20
+        NV = 22
 
         depots = REMIND_facilities.sample(n=ND, random_state=random_state)
         depots['node_type'] = 'depot'
@@ -323,7 +325,7 @@ if __name__ == '__main__':
 
     # help(folium.Icon)
 
-    display_map = True
+    display_map = False
     if display_map:
         instance_name = 'inst_realistic'
         instance_data = load_json_instance('./instances', instance_name + '.json')
@@ -334,4 +336,5 @@ if __name__ == '__main__':
         print('start map creation')
         m = get_folium_map(nodes)
         print('map created in ' + str(time.time() - start))
+
 
