@@ -63,7 +63,7 @@ def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
         # demand vector d
         realistic_demand = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='client').astype({"demand_daily": int}, errors='raise')['demand_daily'].to_list()
         d = {NF + i: realistic_demand[i] for i in range(0, len(realistic_demand))}
-        cv = {l: 10 for l in V} # 10 ton of capacity for each truck
+        cv = {l: 25 for l in V} # 25 (##10) ton of capacity for each truck
         random_T = np.random.randint(5*60, 8*60, NV).tolist()  # maximum servicing times per tour (electic or combustion) 5,8 h * 60 minutes
         T = {l: random_T[l] for l in V}
 
@@ -512,12 +512,21 @@ if __name__ == '__main__':
     test_realistic_inst = True
     if test_realistic_inst:
 
+        # TO DO LIST
+        # cercare fonte di complessità a tentativi:
+        # ridurre di tanto tanto la dimensione degli insiemi se continua si lavora sulla formulazione
+        # limitare il numero massimo di nodi visitati dai veicoli (provato)
+        # provare con un unico tour con un unico veicolo, se va il problema è il num di veicoli (si può poi splittare il giant tour)
+        # al contrario faccio un numero di tour pari al numero dei clienti e poi li unisco in tuor più grandi
+        # levare le var. e di sequenziamento e sostiturire con var e vincoli di tempo di arrivo nei nodi
+        # tornare al deposito
+
         instance_name = "inst_realistic"
         data = load_json_instance('./instances', instance_name + '.json')
         inst_data = data['inst_data']
 
         SP_time_limit = 30
-        OP_time_limit = 1000
+        OP_time_limit = 10000
         maxit = 1
 
         results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)

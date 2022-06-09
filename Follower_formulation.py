@@ -53,14 +53,18 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     z = {(l, a, b): m.addVar(vtype=GRB.BINARY, name='z({},{},{})'.format(l, a, b))
          for l in V for a in N for b in N}
 
-    e = {(l,a): m.addVar(lb=0, vtype=GRB.INTEGER, name='e({},{})'.format(l,a))
+    e = {(l,a): m.addVar(lb=0, vtype=GRB.CONTINUOUS, name='e({},{})'.format(l,a))
          for l in V for a in N}
 
     v = {(l,j): m.addVar(lb=0, vtype=GRB.CONTINUOUS, name='v({},{})'.format(l,j))
          for l in V for j in F}
 
-    rho = {(l,a): m.addVar(lb=0, vtype=GRB.CONTINUOUS, name='rho({},{})'.format(l,a))
-    for l in V for a in C}
+    ####################################################################################################
+    ############## rho variable for splitting node demand across many trucks ###########################
+    ####################################################################################################
+    # rho = {(l,a): m.addVar(lb=0, vtype=GRB.CONTINUOUS, name='rho({},{})'.format(l,a))
+    # for l in V for a in C}
+    ####################################################################################################
 
 
     # obj.fun. linearization var
@@ -69,28 +73,42 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     # Constraints
     # (10)
     for l in V:
-        m.addConstr(quicksum(h[l, j] for j in F) == quicksum(z[l, k, i] for k in D for i in C),
-                     name='C_10_({})'.format(l))
+        m.addConstr(quicksum(h[l, j] for j in F) == quicksum(z[l, k, i] for k in D for i in C), name='C_10_({})'.format(l))
     # (11)
     for l in V:
         m.addConstr(quicksum(h[l, k] for k in D) == 1, name='C_11_onedeposit({})'.format(l))
     # (12)
     for l in V:
         m.addConstr(quicksum(h[l, j] for j in F) == 1, name='C_12_onefacility({})'.format(l))
-    # (13)
+
+    ####################################################################################################
+    ############## constraints for splitting node demand across many trucks using var. rho #############
+    ####################################################################################################
+    # # (13)
+    # for i in C:
+    #     m.addConstr(d[i] == quicksum(rho[l,i] for l in V), name = 'C_13_demand_satisfied({})'.format(i))
+    # # (14)
+    # for l in V:
+    #     for i in C:
+    #         m.addConstr(rho[l,i] <= big_M*h[l,i], name='C_14_pickup_iff_visited({},{})'.format(l,i))
+    # # (15)
+    # for l in V:
+    #     for i in C:
+    #         m.addConstr(rho[l, i] >= 0.1*d[i]*h[l, i], name='C_15_minimum_pickup({},{})'.format(l, i))
+    # # (16)
+    # for l in V:
+    #     m.addConstr(quicksum(rho[l,i] for i in C) <= cv[l], name='C_16_capacity_vehicle({})'.format(l))
+    ####################################################################################################
+    ########################## OTHERWISE let us use the following const: ###############################
+    # (9)
     for i in C:
-        m.addConstr(d[i] == quicksum(rho[l,i] for l in V), name = 'C_13_demand_satisfied({})'.format(i))
-    # (14)
-    for l in V:
-        for i in C:
-            m.addConstr(rho[l,i] <= big_M*h[l,i], name='C_14_pickup_iff_visited({},{})'.format(l,i))
-    # (15)
-    for l in V:
-        for i in C:
-            m.addConstr(rho[l, i] >= 0.1*d[i]*h[l, i], name='C_15_minimum_pickup({},{})'.format(l, i))
-    # (16)
-    for l in V:
-        m.addConstr(quicksum(rho[l,i] for i in C) <= cv[l], name='C_16_capacity_vehicle({})'.format(l))
+        m.addConstr(quicksum(h[l, i] for l in V) == 1, name='C_9_({})'.format(i))
+
+    # (9+++) ++++ limitare numero massimo di nodi visitati +++
+    # for l in V:
+    #     m.addConstr(quicksum(h[l, i] for i in N) <= 5, name='C_9_maxvisits({})'.format(i))
+    ####################################################################################################
+
     # (17)
     for l in V:
         m.addConstr(quicksum(t[a, b] * z[l, a, b] for a in N for b in N if a != b) <= T[l],
@@ -137,7 +155,7 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     # (27)
     for l in V:
         for j in F:
-            m.addConstr((h[l,j]==1)>>(quicksum(rho[l,i] for i in C) == v[l,j]), name='C_27_load_of_l_to_j({},{})'.format(l,j))
+            m.addConstr((h[l,j]==1)>>(quicksum(h[l,i]*d[i] for i in C) == v[l,j]), name='C_27_load_of_l_to_j({},{})'.format(l,j))
     # (28)
     for j in F:
             m.addConstr(quicksum(v[l,j] for l in V) <= quicksum(r[j,h,s]*capf[j,h] for h in H for s in S), name='load_of_j({})'.format(j))

@@ -265,8 +265,8 @@ if __name__ == '__main__':
 
         NF = len(facilities)
         NC = len(clients)
-        ND = 8
-        NV = 22
+        ND = 5  #8
+        NV = 10 #22
 
         depots = REMIND_facilities.sample(n=ND, random_state=random_state)
         depots['node_type'] = 'depot'
