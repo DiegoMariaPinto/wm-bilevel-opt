@@ -69,9 +69,9 @@ def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
 
     else:
         # demand vector d
-        random_d = np.random.randint(100, 250, NC).tolist()  # demand of clients i in C
+        random_d = np.random.randint(50, 80, NC).tolist()  # demand of clients i in C
         d = {i: random_d[i - NF] for i in C}
-        random_cv = np.random.randint(100, 150, NV).tolist()  # vehicles capacities
+        random_cv = np.random.randint(250, 300, NV).tolist()  # vehicles capacities
         cv = {l: random_cv[l] for l in V}
         random_T = np.random.randint(600, 900, NV).tolist()  # maximum servicing times per tour (electic or combustion) 3,8
         T = {l: random_T[l] for l in V}
@@ -81,6 +81,7 @@ def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
     em_t = {(a, b): truck_em_coeff * disdur[(a, b)]['distance'] for (a, b) in itertools.product(N, N)}
     random_P = np.random.randint(50, 100, NF).tolist()  # maximum penalty for a facility
     P = {j: random_P[j] for j in F}
+    M = 500
 
     ######################################################
     # distribute truck across depots s.t. a_k_l == 1 if truck l start its tour from depot k
@@ -99,7 +100,7 @@ def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
 
     ######################################################
 
-    OP_params = {'t': t, 'truck_em_coeff': truck_em_coeff, 'em_t':em_t, 'cv': cv, 'T': T, 'P':P, 'a_matrix': a_matrix}
+    OP_params = {'t': t, 'truck_em_coeff': truck_em_coeff, 'em_t':em_t, 'cv': cv, 'T': T, 'P':P, 'a_matrix': a_matrix, 'M': M}
     #########################
 
     # gamma vector of gamma_1,2,3
@@ -509,7 +510,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
 
 if __name__ == '__main__':
 
-    test_realistic_inst = True
+    test_realistic_inst = False
     if test_realistic_inst:
 
         # TO DO LIST
@@ -532,10 +533,10 @@ if __name__ == '__main__':
         results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
 
 
-    test_one_inst = False
+    test_one_inst = True
     if test_one_inst:
         test_realistic_inst = False
-        instance_num = 2  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
+        instance_num = 5  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
         instance_name = 'inst_#' + str(instance_num)
         data = load_json_instance('./instances', instance_name + '.json')
         inst_data = data['inst_data']

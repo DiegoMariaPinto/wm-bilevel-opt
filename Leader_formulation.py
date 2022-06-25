@@ -54,8 +54,6 @@ def SP_model(params, OP_vars, gap_tol, time_limit, get_first_sol_SP=False, SP_va
              for j in F}
         n = {(j, h, s): m.addVar(lb=0, ub=1, vtype=GRB.CONTINUOUS, name='n({},{},{})'.format(j,h,s))
              for j in F for h in H for s in S}
-        # q = {(s) : m.addVar(vtype=GRB.BINARY, name='q({})'.format(s))
-        #      for s in S}
     else:
         z = OP_vars['z']
         x = {(i, s): m.addVar(lb=SP_vars_to_fix['x'][i, s], ub=SP_vars_to_fix['x'][i, s], vtype=GRB.BINARY,
