@@ -510,7 +510,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
 
 if __name__ == '__main__':
 
-    test_realistic_inst = False
+    test_realistic_inst = True
     if test_realistic_inst:
 
         # TO DO LIST
@@ -533,10 +533,10 @@ if __name__ == '__main__':
         results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
 
 
-    test_one_inst = True
+    test_one_inst = False
     if test_one_inst:
         test_realistic_inst = False
-        instance_num = 5  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
+        instance_num = 9  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
         instance_name = 'inst_#' + str(instance_num)
         data = load_json_instance('./instances', instance_name + '.json')
         inst_data = data['inst_data']

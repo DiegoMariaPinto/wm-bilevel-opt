@@ -138,21 +138,24 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     for l in V:
         m.addConstr(quicksum(p[l, j] for j in F) <= T[l], name='C_25_tempo_fine({})'.format(l))
 
-    # (27)
+    # (26)
     for l in V:
         for j in F:
             m.addConstr((h[l, j] == 1) >> (quicksum(h[l, i] * d[i] for i in C) == v[l, j]),
                             name='C_26_load_of_l_to_j({},{})'.format(l, j))
-    # (28)
+    # (27)
     for j in F:
         m.addConstr(quicksum(v[l, j] for l in V) <= quicksum(r[j, h, s] * capf[j, h] for h in H for s in S),
                         name='C_27_load_of_j({})'.format(j))
-    # (29) DI FATTO NON INFLUISCE SULLA FUNZIONE OBIETTIVO, PERO' RIDUCE IL TEMPO COMPUTAZIONALE (IO LO TERREI)
+    # (28) DI FATTO NON INFLUISCE SULLA FUNZIONE OBIETTIVO, PERO' RIDUCE IL TEMPO COMPUTAZIONALE (IO LO TERREI)
     for l in V:
         for j in F:
             m.addConstr((h[l, j] == 0) >> (v[l, j] == 0),
                             name='C_28_no_load_unvisited_facility({},{})'.format(l, j))
     # (30) funzione obiettivo
+    #for l in V:
+        #m.addConstr(w >= quicksum(z[l, a, b] * t[a, b] for a in D + C for b in C + F), name='C_27_({})')
+
     m.addConstr(w >= quicksum(z[l, a, b] * t[a, b] for a in D + C for b in C + F for l in V), name='C_27_({})')
     ### no loop constraints:
     # (24)
