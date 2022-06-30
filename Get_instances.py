@@ -109,9 +109,7 @@ def get_ODbyOSM(nodes):
                 dur = 0
 
             disdur[(id_from, id_to)] = {'distance': dis, 'duration': dur}
-            inst_data.append(
-                [id_from_name, id_to_name, id_from, ntype_from, id_to, ntype_to, lat2, long2, lat1, long1, dis,
-                 dur])
+            inst_data.append([id_from_name, id_to_name, id_from, ntype_from, id_to, ntype_to, lat2, long2, lat1, long1, dis, dur])
 
     inst_data = pd.DataFrame(inst_data,
                              columns=['id_from_name', 'id_to_name', 'id_from', 'ntype_from', 'id_to', 'ntype_to',
@@ -325,7 +323,7 @@ if __name__ == '__main__':
 
     # help(folium.Icon)
 
-    display_map = False
+    display_map = True
     if display_map:
         instance_name = 'inst_realistic'
         instance_data = load_json_instance('./instances', instance_name + '.json')

@@ -205,13 +205,13 @@ def SP_model(params, OP_vars, gap_tol, time_limit, get_first_sol_SP=False, SP_va
                 q_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
 
         vars_opt = pd.DataFrame.from_records(vars_opt, columns=["variable", "value"])
-        vars_opt.to_excel('risultati_SP.xlsx')
 
         x_opt = vars_opt[vars_opt['variable'].str.contains("x", na=False)]
         r_opt = vars_opt[vars_opt['variable'].str.contains("r", na=False)]
         y_opt = vars_opt[vars_opt['variable'].str.contains("y", na=False)]
         n_opt = vars_opt[vars_opt['variable'].str.contains("n", na=False)]
         q_opt = vars_opt[vars_opt['variable'].str.contains("q", na=False)]
+
 
         x_opt['value'].apply(pd.to_numeric)
         r_opt['value'].apply(pd.to_numeric)

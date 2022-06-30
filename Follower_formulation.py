@@ -287,7 +287,6 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
                 v_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
 
         vars_opt = pd.DataFrame.from_records(vars_opt, columns=["variable", "value"])
-        vars_opt.to_excel('risultati_SP.xlsx')
 
         h_opt = vars_opt[vars_opt['variable'].str.startswith("h", na=False)]
         z_opt = vars_opt[vars_opt['variable'].str.contains("z", na=False)]

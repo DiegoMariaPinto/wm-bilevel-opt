@@ -441,6 +441,33 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
                 if SP_optval_k < best_obj:
                     print('Heuristic iteration DID SUCCEED reducing obj val!')
                     best_obj = SP_optval_k
+
+                    ######## leader vars ##################################
+                    x_opt = pd.Series(SP_opt_vars['x']).reset_index()
+                    x_opt.columns = ['i', 's', 'value']
+                    x_opt.to_excel('x_optimal_vars_leader.xlsx')
+
+                    r_opt = pd.Series(SP_opt_vars['r']).reset_index()
+                    r_opt.columns = ['j', 'h', 's', 'value']
+                    r_opt.to_excel('r_optimal_vars_leader.xlsx')
+                    ##################################################
+
+                    #### follower vars #####################################
+
+                    z_opt = pd.Series(OP_opt_vars['z']).reset_index()
+                    z_opt.columns = ['l', 'a', 'b', 'value']
+                    z_opt.to_excel('z_optimal_vars_leader.xlsx')
+
+                    p_opt = pd.Series(OP_opt_vars['p']).reset_index()
+                    p_opt.columns = ['l', 'a', 'value']
+                    p_opt.to_excel('p_optimal_vars_follower.xlsx')
+
+                    v_opt = pd.Series(OP_opt_vars['v']).reset_index()
+                    v_opt.columns = ['l', 'j', 'value']
+                    v_opt.to_excel('v_optimal_vars_follower.xlsx')
+
+                    ##################################################
+
                     best_k = count
                     # update open list
                     open_list = [r_var for r_var, value in r.items() if value == 1]
@@ -510,7 +537,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
 
 if __name__ == '__main__':
 
-    test_realistic_inst = True
+    test_realistic_inst = False
     if test_realistic_inst:
 
         # TO DO LIST
@@ -533,10 +560,10 @@ if __name__ == '__main__':
         results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
 
 
-    test_one_inst = False
+    test_one_inst = True
     if test_one_inst:
         test_realistic_inst = False
-        instance_num = 9  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
+        instance_num = 6  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
         instance_name = 'inst_#' + str(instance_num)
         data = load_json_instance('./instances', instance_name + '.json')
         inst_data = data['inst_data']
