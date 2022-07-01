@@ -537,7 +537,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
 
 if __name__ == '__main__':
 
-    test_realistic_inst = False
+    test_realistic_inst = True
     if test_realistic_inst:
 
         # TO DO LIST
@@ -554,16 +554,16 @@ if __name__ == '__main__':
         inst_data = data['inst_data']
 
         SP_time_limit = 30
-        OP_time_limit = 10000
-        maxit = 1
+        OP_time_limit = 3600
+        maxit = 10
 
         results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
 
 
-    test_one_inst = True
+    test_one_inst = False
     if test_one_inst:
         test_realistic_inst = False
-        instance_num = 6  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
+        instance_num = 14  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
         instance_name = 'inst_#' + str(instance_num)
         data = load_json_instance('./instances', instance_name + '.json')
         inst_data = data['inst_data']
@@ -616,9 +616,9 @@ if __name__ == '__main__':
         df_columns = ['instance_name', 'first_eval', 'best_obj', 'perc_reduction', 'maxit', 'NF', 'NC', 'ND', 'NV', 'SP_time_limit', 'OP_time_limit'] + itercols_name
         df_results = pd.DataFrame(results, columns = df_columns)
 
-        df_results.to_excel('heuristic_results.xlsx')
+        df_results.to_excel('heuristic_results_new.xlsx')
 
-        df_results_load = pd.read_excel('heuristic_results.xlsx')
+        df_results_load = pd.read_excel('heuristic_results_new.xlsx')
 
 
 
