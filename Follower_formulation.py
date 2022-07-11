@@ -35,6 +35,7 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     P = OP_params['P']
     M = OP_params['M']
     a_matrix = OP_params['a_matrix']
+    u = OP_params['u']
 
     SP_params = params['SP_params']
     H = SP_params['H']
@@ -152,11 +153,14 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
         for j in F:
             m.addConstr((h[l, j] == 0) >> (v[l, j] == 0),
                             name='C_28_no_load_unvisited_facility({},{})'.format(l, j))
+    for l in V:
+        m.addConstr(quicksum(h[l,i] for i in C)>= 3,name='C_add_least_nodes({})'.format(l))
     # (30) funzione obiettivo
     #for l in V:
-        #m.addConstr(w >= quicksum(z[l, a, b] * t[a, b] for a in D + C for b in C + F), name='C_27_({})')
+        #m.addConstr(w >= quicksum(z[l, a, b] * t[a, b] for a in D + C for b in C + F), name='C_fo_({})')
 
-    m.addConstr(w >= quicksum(z[l, a, b] * t[a, b] for a in D + C for b in C + F for l in V), name='C_27_({})')
+    m.addConstr(w >= quicksum(z[l, a, b] * t[a, b] for a in D + C for b in C + F for l in V+quicksum(u[l]*z[l,k,b] for l in V for k in D for b in C)), name='C_fo_({})')
+
     ### no loop constraints:
     # (24)
     #for l in V:

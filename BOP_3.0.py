@@ -82,6 +82,7 @@ def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
     random_P = np.random.randint(50, 100, NF).tolist()  # maximum penalty for a facility
     P = {j: random_P[j] for j in F}
     M = 500
+    u = {l: 10*(l+1) for l in V}
 
     ######################################################
     # distribute truck across depots s.t. a_k_l == 1 if truck l start its tour from depot k
@@ -100,7 +101,7 @@ def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
 
     ######################################################
 
-    OP_params = {'t': t, 'truck_em_coeff': truck_em_coeff, 'em_t':em_t, 'cv': cv, 'T': T, 'P':P, 'a_matrix': a_matrix, 'M': M}
+    OP_params = {'t': t, 'truck_em_coeff': truck_em_coeff, 'em_t':em_t, 'cv': cv, 'T': T, 'P':P, 'a_matrix': a_matrix, 'M': M, 'u':u}
     #########################
 
     # gamma vector of gamma_1,2,3
@@ -540,22 +541,13 @@ if __name__ == '__main__':
     test_realistic_inst = False
     if test_realistic_inst:
 
-        # TO DO LIST
-        # cercare fonte di complessità a tentativi:
-        # ridurre di tanto tanto la dimensione degli insiemi se continua si lavora sulla formulazione
-        # limitare il numero massimo di nodi visitati dai veicoli (provato)
-        # provare con un unico tour con un unico veicolo, se va il problema è il num di veicoli (si può poi splittare il giant tour)
-        # al contrario faccio un numero di tour pari al numero dei clienti e poi li unisco in tuor più grandi
-        # levare le var. e di sequenziamento e sostiturire con var e vincoli di tempo di arrivo nei nodi
-        # tornare al deposito
-
         instance_name = "inst_realistic"
         data = load_json_instance('./instances', instance_name + '.json')
         inst_data = data['inst_data']
 
         SP_time_limit = 30
-        OP_time_limit = 10000
-        maxit = 1
+        OP_time_limit = 3600
+        maxit = 10
 
         results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
 
@@ -563,7 +555,7 @@ if __name__ == '__main__':
     test_one_inst = True
     if test_one_inst:
         test_realistic_inst = False
-        instance_num = 6  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
+        instance_num = 5  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
         instance_name = 'inst_#' + str(instance_num)
         data = load_json_instance('./instances', instance_name + '.json')
         inst_data = data['inst_data']
@@ -612,13 +604,15 @@ if __name__ == '__main__':
 
             results.append(inst_results)
 
-        itercols_name = ['iter_#' + str(i) for i in range(1, maxit + 1)]
+        iter_cols = [len(i) for i in results]
+        iter_cols_len = max(iter_cols)
+        itercols_name = ['iter_#' + str(i) for i in range(1, iter_cols_len + 1)]
         df_columns = ['instance_name', 'first_eval', 'best_obj', 'perc_reduction', 'maxit', 'NF', 'NC', 'ND', 'NV', 'SP_time_limit', 'OP_time_limit'] + itercols_name
         df_results = pd.DataFrame(results, columns = df_columns)
 
-        df_results.to_excel('heuristic_results.xlsx')
+        df_results.to_excel('heuristic_results_new.xlsx')
 
-        df_results_load = pd.read_excel('heuristic_results.xlsx')
+        df_results_load = pd.read_excel('heuristic_results_new.xlsx')
 
 
 
