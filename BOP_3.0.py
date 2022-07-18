@@ -63,7 +63,7 @@ def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
         # demand vector d
         realistic_demand = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='client').astype({"demand_daily": int}, errors='raise')['demand_daily'].to_list()
         d = {NF + i: realistic_demand[i] for i in range(0, len(realistic_demand))}
-        cv = {l: 25 for l in V} # 25 (##10) ton of capacity for each truck
+        cv = {l: 50 for l in V} # 25 (##10) ton of capacity for each truck
         random_T = np.random.randint(5*60, 8*60, NV).tolist()  # maximum servicing times per tour (electic or combustion) 5,8 h * 60 minutes
         T = {l: random_T[l] for l in V}
 
@@ -82,7 +82,6 @@ def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
     random_P = np.random.randint(50, 100, NF).tolist()  # maximum penalty for a facility
     P = {j: random_P[j] for j in F}
     M = 500
-    u = {l: 10*(l+1) for l in V}
 
     ######################################################
     # distribute truck across depots s.t. a_k_l == 1 if truck l start its tour from depot k
@@ -101,7 +100,7 @@ def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
 
     ######################################################
 
-    OP_params = {'t': t, 'truck_em_coeff': truck_em_coeff, 'em_t':em_t, 'cv': cv, 'T': T, 'P':P, 'a_matrix': a_matrix, 'M': M, 'u':u}
+    OP_params = {'t': t, 'truck_em_coeff': truck_em_coeff, 'em_t':em_t, 'cv': cv, 'T': T, 'P':P, 'a_matrix': a_matrix, 'M': M}
     #########################
 
     # gamma vector of gamma_1,2,3
@@ -260,7 +259,6 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
 
     # evaluate load of clusters due to clients assignement
     s_load = get_cluster_load(SP_opt_vars_init, params)
-
     print('########################### \n FIRST ATTEMPT TO SOLVE OP \n###########################')
     OP_opt_vars, OP_vars_list = OP_model(params, SP_opt_vars_init, gap_tol, OP_time_limit)
 
@@ -429,7 +427,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
                     print('Trigger 2: found facility to help: is facility ' + str(j_to_help))
 
 
-                # New Y and R vars are give to OP for a new solution:
+                # New Y and R vars are given to OP for a new solution:
                 SP_opt_vars['y'] = y
                 SP_opt_vars['r'] = r
                 print('\n' + str(count) + 'th iteration of solving OP \n')
@@ -538,7 +536,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
 
 if __name__ == '__main__':
 
-    test_realistic_inst = False
+    test_realistic_inst = True
     if test_realistic_inst:
 
         instance_name = "inst_realistic"
@@ -552,10 +550,10 @@ if __name__ == '__main__':
         results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
 
 
-    test_one_inst = True
+    test_one_inst = False
     if test_one_inst:
         test_realistic_inst = False
-        instance_num = 5  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
+        instance_num = 7  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
         instance_name = 'inst_#' + str(instance_num)
         data = load_json_instance('./instances', instance_name + '.json')
         inst_data = data['inst_data']
@@ -582,6 +580,8 @@ if __name__ == '__main__':
         test_realistic_inst = False
         results = []
         for instance_num in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]:
+
+            print('#########################\n INSTANCE NUMBER'+ str(instance_num)+'\n#################################')
 
             instance_name = 'inst_#' + str(instance_num)
             data = load_json_instance('./instances', instance_name + '.json')

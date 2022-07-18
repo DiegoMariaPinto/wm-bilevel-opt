@@ -35,7 +35,6 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     P = OP_params['P']
     M = OP_params['M']
     a_matrix = OP_params['a_matrix']
-    u = OP_params['u']
 
     SP_params = params['SP_params']
     H = SP_params['H']
@@ -78,10 +77,10 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
         m.addConstr(quicksum(h[l, j] for j in F) == quicksum(z[l, k, i] for k in D for i in C), name='C_10_({})'.format(l))
     # (11)
     for l in V:
-        m.addConstr(quicksum(h[l, k] for k in D) <= 1, name='C_11_onedeposit({})'.format(l))
+        m.addConstr(quicksum(h[l, k] for k in D) == 1, name='C_11_onedeposit({})'.format(l))
     # (12)
     for l in V:
-        m.addConstr(quicksum(h[l, j] for j in F) == quicksum(h[l, k] for k in D), name='C_12_onefacility({})'.format(l))
+        m.addConstr(quicksum(h[l, j] for j in F) == 1, name='C_12_onefacility({})'.format(l))
     # (13)
     for i in C:
         m.addConstr(quicksum(h[l, i] for l in V) == 1, name='C_13_one_vehicle_for_node({})'.format(i))
@@ -153,13 +152,11 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
         for j in F:
             m.addConstr((h[l, j] == 0) >> (v[l, j] == 0),
                             name='C_28_no_load_unvisited_facility({},{})'.format(l, j))
-    for l in V:
-        m.addConstr(quicksum(h[l,i] for i in C)>= 3,name='C_add_least_nodes({})'.format(l))
     # (30) funzione obiettivo
-    #for l in V:
-        #m.addConstr(w >= quicksum(z[l, a, b] * t[a, b] for a in D + C for b in C + F), name='C_fo_({})')
+    for l in V:
+        m.addConstr(w >= quicksum(z[l, a, b] * t[a, b] for a in D + C for b in C + F), name='C_fo_({})')
 
-    m.addConstr(w >= quicksum(z[l, a, b] * t[a, b] for a in D + C for b in C + F for l in V), name='C_fo_({})')
+    #m.addConstr(w >= quicksum(z[l, a, b] * t[a, b] for a in D + C for b in C + F for l in V)+quicksum(u[l]*h[l,k] for l in V for k in D), name='C_fo_({})')
 
 
 
