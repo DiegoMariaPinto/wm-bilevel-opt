@@ -1,14 +1,8 @@
-import itertools
-import random
-
-from gurobipy import *
 from gurobipy import quicksum
 from gurobipy import GRB
 from gurobipy import Model
 
 import pandas as pd
-import numpy as np
-from Get_instances import load_json_instance
 
 
 def OP_model(params, SP_vars, gap_tol, time_limit):
@@ -44,7 +38,6 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     y = SP_vars['y']
     r = SP_vars['r']
 
-    big_M = max(cv.values())
 
     # OP Variables
 
@@ -153,10 +146,11 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
             m.addConstr((h[l, j] == 0) >> (v[l, j] == 0),
                             name='C_28_no_load_unvisited_facility({},{})'.format(l, j))
     # (30) funzione obiettivo
-    for l in V:
-        m.addConstr(w >= quicksum(z[l, a, b] * t[a, b] for a in D + C for b in C + F), name='C_fo_({})')
 
-    #m.addConstr(w >= quicksum(z[l, a, b] * t[a, b] for a in D + C for b in C + F for l in V)+quicksum(u[l]*h[l,k] for l in V for k in D), name='C_fo_({})')
+    # for l in V:
+    #     m.addConstr(w >= quicksum(z[l, a, b] * t[a, b] for a in D + C for b in C + F), name='C_fo_({})')
+
+    m.addConstr(w >= quicksum(z[l, a, b] * t[a, b] for a in D + C for b in C + F for l in V), name='C_fo_({})')
 
 
 
@@ -270,7 +264,7 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
         optObjVal = m.getAttr(GRB.Attr.ObjVal)
         bestObjBound = m.getAttr(GRB.Attr.ObjBound)
         Runtime = m.Runtime
-        # Gap = m.MIPGap
+        Gap = m.MIPGap
 
         vars_opt = []
         h_opt_dict = {}
@@ -305,4 +299,4 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
 
         opt_vars = {'h': h_opt_dict, 'z': z_opt_dict, 'p': p_opt_dict, 'v': v_opt_dict}
 
-        return opt_vars, df_vars_list
+        return opt_vars, df_vars_list, Gap
