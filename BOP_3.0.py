@@ -63,7 +63,7 @@ def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
         # demand vector d
         realistic_demand = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='client').astype({"demand_daily": int}, errors='raise')['demand_daily'].to_list()
         d = {NF + i: realistic_demand[i] for i in range(0, len(realistic_demand))}
-        cv = {l: 50 for l in V} # 25 (##10) ton of capacity for each truck
+        cv = {l: 20 for l in V} # 25 (##10) ton of capacity for each truck
         random_T = np.random.randint(5*60, 8*60, NV).tolist()  # maximum servicing times per tour (electic or combustion) 5,8 h * 60 minutes
         T = {l: random_T[l] for l in V}
 
@@ -542,7 +542,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
 
 if __name__ == '__main__':
 
-    test_realistic_inst = False
+    test_realistic_inst = True
     if test_realistic_inst:
 
         instance_name = "inst_realistic"
@@ -550,7 +550,7 @@ if __name__ == '__main__':
         inst_data = data['inst_data']
 
         SP_time_limit = 30
-        OP_time_limit = 3600
+        OP_time_limit = 1800
         maxit = 10
 
         results, OP_gap_results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
@@ -581,13 +581,12 @@ if __name__ == '__main__':
 
 
 
-    test_all_inst = True
+    test_all_inst = False
     if test_all_inst:
         test_realistic_inst = False
         results = []
         OP_gap_results = []
-        # for instance_num in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]:
-        for instance_num in [7, 8, 9]:
+        for instance_num in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]:
 
             print('#########################\n INSTANCE NUMBER'+ str(instance_num)+'\n#################################')
 
@@ -601,12 +600,12 @@ if __name__ == '__main__':
                 OP_time_limit = 100
             elif NC == 25:
                 SP_time_limit = 35
-                OP_time_limit = 60 # 400
+                OP_time_limit = 400
             else:
                 SP_time_limit = 50
                 OP_time_limit = 800
 
-            maxit = 4
+            maxit = 10
 
             inst_results, inst_OP_gap_results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
 
