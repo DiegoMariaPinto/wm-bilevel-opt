@@ -234,7 +234,7 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     m.setParam(GRB.Param.LogToConsole, 1)
     ###########################################
 
-    m.Params.IntFeasTol = 1e-3 # default is 1e-5
+    #m.Params.IntFeasTol = 1e-3 # default is 1e-5
 
     m.modelSense = GRB.MINIMIZE
     m.update()
