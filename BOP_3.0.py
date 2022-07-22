@@ -246,7 +246,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
     B = SP_params['B']
     S = SP_params['S']
 
-
+    OPs_OptGap_dict = {}
     ########################
 
     OP_opt_vars = None
@@ -260,7 +260,11 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
     # evaluate load of clusters due to clients assignement
     s_load = get_cluster_load(SP_opt_vars_init, params)
     print('########################### \n FIRST ATTEMPT TO SOLVE OP \n###########################')
-    OP_opt_vars, OP_vars_list, OP_OptGap = OP_model(params, SP_opt_vars_init, gap_tol, OP_time_limit)
+    OP_opt_vars, OP_vars_list, OP_OptGap, OP_optval = OP_model(params, SP_opt_vars_init, gap_tol, OP_time_limit)
+
+    OPs_OptGap_dict[0] = OP_OptGap
+    OP_obj_evolution = {}
+    OP_obj_evolution[0] = OP_optval
 
     # evaluate load of open facility due to trucks routing
     j_load = get_facility_load(OP_opt_vars, SP_opt_vars_init, params)
@@ -289,7 +293,6 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
     SP_obj_evolution[0] = SP_optval
     best_obj = SP_optval
 
-    OPs_OptGap_dict = {}
 
     print('first solution open facility list is : \n')
     print(open_list)
@@ -433,8 +436,9 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
                 SP_opt_vars['r'] = r
                 print('\n' + str(count) + 'th iteration of solving OP \n')
                 OP_opt_vars_old = OP_opt_vars
-                OP_opt_vars, OP_vars_list, OP_OptGap = OP_model(params, SP_opt_vars, gap_tol, OP_time_limit)
+                OP_opt_vars, OP_vars_list, OP_OptGap, OP_optval = OP_model(params, SP_opt_vars, gap_tol, OP_time_limit)
                 OPs_OptGap_dict[count] = OP_OptGap
+                OP_obj_evolution[count] = OP_optval
 
                 SP_optval_k = evalute_SP_objval(OP_opt_vars,SP_opt_vars,params, gap_tol)
                 SP_obj_evolution[count] = SP_optval_k
@@ -533,11 +537,15 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
     for gap in list(OPs_OptGap_dict.values()):
         OP_gap_results.append(gap)
 
+    OP_obj_evolution_results = []
+    for val in list(OP_obj_evolution.values()):
+        OP_obj_evolution_results.append(val)
+
     print('trigger_0_tabu_list is: ' + str(trigger_0_tabu_list))
     print('trigger_1_tabu_list is: ' + str(trigger_1_tabu_list))
     print('trigger_2_tabu_list is: ' + str(trigger_2_tabu_list))
 
-    return results, OP_gap_results
+    return results, OP_gap_results, OP_obj_evolution_results
 
 
 if __name__ == '__main__':
@@ -553,7 +561,7 @@ if __name__ == '__main__':
         OP_time_limit = 3600
         maxit = 10
 
-        results, OP_gap_results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
+        results, OP_gap_results, OP_obj_evolution_results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
 
 
     test_one_inst = False
@@ -577,7 +585,7 @@ if __name__ == '__main__':
 
         maxit = 10
 
-        results, OP_gap_results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
+        results, OP_gap_results, OP_obj_evolution_results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
 
 
 
@@ -586,8 +594,8 @@ if __name__ == '__main__':
         test_realistic_inst = False
         results = []
         OP_gap_results = []
-        # for instance_num in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]:
-        for instance_num in [7, 8, 9]:
+        OP_obj_results = []
+        for instance_num in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]:
 
             print('#########################\n INSTANCE NUMBER'+ str(instance_num)+'\n#################################')
 
@@ -608,10 +616,11 @@ if __name__ == '__main__':
 
             maxit = 4
 
-            inst_results, inst_OP_gap_results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
+            inst_results, inst_OP_gap_results, inst_OP_obj_evolution_results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
 
             results.append(inst_results)
             OP_gap_results.append([instance_name]+inst_OP_gap_results)
+            OP_obj_results.append([instance_name]+inst_OP_obj_evolution_results)
 
         iter_cols = [len(i) for i in results]
         iter_cols_len = max(iter_cols)
@@ -621,10 +630,17 @@ if __name__ == '__main__':
 
         df_results.to_excel('heuristic_results_new.xlsx')
 
-        itergaps_name = ['gap_iter_#' + str(i) for i in range(1, iter_cols_len - 11 )]
-        df_OP_gaps_columns = ['instance_name'] + itergaps_name
+        OP_itergaps_name = ['gap_iter_#' + str(i) for i in range(1, iter_cols_len - 11 )]
+        df_OP_gaps_columns = ['instance_name'] + ['first_eval_GAP'] + OP_itergaps_name
         df_OP_gaps = pd.DataFrame(OP_gap_results, columns = df_OP_gaps_columns)
         df_OP_gaps.to_excel('heuristic_OP_gaps_results.xlsx')
+
+        OP_iterval_name = ['ObjVal_iter_#' + str(i) for i in range(1, iter_cols_len - 11 )]
+        df_OP_ObjVal_columns = ['instance_name'] + ['first_eval_ObjVal'] + OP_iterval_name
+        df_OP_ObjVal = pd.DataFrame(OP_obj_results, columns = df_OP_ObjVal_columns)
+        df_OP_ObjVal.to_excel('heuristic_OP_ObjVal_results.xlsx')
+
+
 
 
 

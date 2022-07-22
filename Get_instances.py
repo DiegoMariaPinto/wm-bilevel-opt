@@ -256,15 +256,15 @@ if __name__ == '__main__':
         instance_name = 'inst_realistic'
         random_state = 1529810
 
-        facilities = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='facility').astype({'node_type': str, 'lat': float,'long': float,'node_name': str}, errors='raise')
-        clients    = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='client').astype({'node_type': str, 'lat': float,'long': float,'node_name': str}, errors='raise')
+        facilities = pd.read_excel('BOP_realistic_instance_v2.xlsx', sheet_name='facility').astype({'node_type': str, 'lat': float,'long': float,'node_name': str}, errors='raise')
+        clients    = pd.read_excel('BOP_realistic_instance_v2.xlsx', sheet_name='client').astype({'node_type': str, 'lat': float,'long': float,'node_name': str}, errors='raise')
         facilities = facilities[['node_name', 'lat', 'long', 'node_type']]
         clients    = clients[['node_name', 'lat', 'long', 'node_type']]
 
         NF = len(facilities)
         NC = len(clients)
-        ND = 5  #8
-        NV = 5 #22
+        ND = 8
+        NV = 12
 
         depots = REMIND_facilities.sample(n=ND, random_state=random_state)
         depots['node_type'] = 'depot'
@@ -323,7 +323,7 @@ if __name__ == '__main__':
 
     # help(folium.Icon)
 
-    display_map = False
+    display_map = True
     if display_map:
         instance_name = 'inst_realistic'
         instance_data = load_json_instance('./instances', instance_name + '.json')

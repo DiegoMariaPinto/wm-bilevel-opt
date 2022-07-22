@@ -299,4 +299,4 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
 
         opt_vars = {'h': h_opt_dict, 'z': z_opt_dict, 'p': p_opt_dict, 'v': v_opt_dict}
 
-        return opt_vars, df_vars_list, Gap
+        return opt_vars, df_vars_list, Gap, optObjVal
