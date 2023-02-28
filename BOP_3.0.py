@@ -31,7 +31,7 @@ def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
     # SP specific parameters
 
     if test_realistic_inst:
-        realistic_capacity = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='facility').astype({"fraction_cap_daily M": int}, errors='raise')['fraction_cap_daily M'].to_list()
+        realistic_capacity = pd.read_excel('BOP_realistic_instance_v2.xlsx', sheet_name='facility').astype({"fraction_cap_daily M": int}, errors='raise')['fraction_cap_daily M'].to_list()
         capacity_dict = { i : realistic_capacity[i] for i in range(0, len(realistic_capacity)) }
         H = [1, 2, 3]  # 1 = S, 2 = M, 3 = L
         CAPH = {1: 0.7, 2: 1, 3: 1.3}  # 1 reduces cap of 30%, 2 set its default cap, 3 enlarge cap of 30%
@@ -54,6 +54,7 @@ def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
     NS = NF  # upper bound of the number of clusters
     S = list(range(NS))
 
+
     SP_params = {'H':H, 'CAPH': CAPH, 'EM': EM, 'FCost': FCost, 'capf': capf, 'c':c, 'B':B, 'em_f': em_f, 'NS':NS, 'S': S, 'sc': sc}
 
     #########################
@@ -61,9 +62,9 @@ def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
 
     if test_realistic_inst:
         # demand vector d
-        realistic_demand = pd.read_excel('BOP_realistic_instance.xlsx', sheet_name='client').astype({"demand_daily": int}, errors='raise')['demand_daily'].to_list()
+        realistic_demand = pd.read_excel('BOP_realistic_instance_v2.xlsx', sheet_name='client').astype({"demand_weekly": int}, errors='raise')['demand_weekly'].to_list()
         d = {NF + i: realistic_demand[i] for i in range(0, len(realistic_demand))}
-        cv = {l: 50 for l in V} # 25 (##10) ton of capacity for each truck
+        cv = {l: 40 for l in V} # 25 (##10) ton of capacity for each truck
         random_T = np.random.randint(5*60, 8*60, NV).tolist()  # maximum servicing times per tour (electic or combustion) 5,8 h * 60 minutes
         T = {l: random_T[l] for l in V}
 
@@ -71,7 +72,7 @@ def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
         # demand vector d
         random_d = np.random.randint(50, 80, NC).tolist()  # demand of clients i in C
         d = {i: random_d[i - NF] for i in C}
-        random_cv = np.random.randint(250, 300, NV).tolist()  # vehicles capacities
+        random_cv = np.random.randint(200, 400, NV).tolist()  # vehicles capacities
         cv = {l: random_cv[l] for l in V}
         random_T = np.random.randint(600, 900, NV).tolist()  # maximum servicing times per tour (electic or combustion) 3,8
         T = {l: random_T[l] for l in V}
@@ -82,6 +83,7 @@ def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
     random_P = np.random.randint(50, 100, NF).tolist()  # maximum penalty for a facility
     P = {j: random_P[j] for j in F}
     M = 500
+    u = {l: 90 + (l * 1) for l in V}
 
     ######################################################
     # distribute truck across depots s.t. a_k_l == 1 if truck l start its tour from depot k
@@ -100,7 +102,7 @@ def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
 
     ######################################################
 
-    OP_params = {'t': t, 'truck_em_coeff': truck_em_coeff, 'em_t':em_t, 'cv': cv, 'T': T, 'P':P, 'a_matrix': a_matrix, 'M': M}
+    OP_params = {'t': t, 'truck_em_coeff': truck_em_coeff, 'em_t':em_t, 'cv': cv, 'T': T, 'P':P, 'a_matrix': a_matrix, 'M': M, 'u':u}
     #########################
 
     # gamma vector of gamma_1,2,3
@@ -123,12 +125,13 @@ def get_facility_load(OP_opt_vars, SP_opt_vars, params):
 
     h = OP_opt_vars['h']
     y = SP_opt_vars['y']
+    e = OP_opt_vars['e']
 
     loads = {}
     for l in V:
         load = 0
         for i in C:
-            load += h[(l, i)] * d[i]
+            load += e[(l, i)]
         loads[l] = load
 
     j_load = {}
@@ -550,7 +553,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
 
 if __name__ == '__main__':
 
-    test_realistic_inst = False
+    test_realistic_inst = True
     if test_realistic_inst:
 
         instance_name = "inst_realistic"
@@ -558,7 +561,7 @@ if __name__ == '__main__':
         inst_data = data['inst_data']
 
         SP_time_limit = 30
-        OP_time_limit = 3600
+        OP_time_limit = 1800
         maxit = 10
 
         results, OP_gap_results, OP_obj_evolution_results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
@@ -567,7 +570,7 @@ if __name__ == '__main__':
     test_one_inst = False
     if test_one_inst:
         test_realistic_inst = False
-        instance_num = 7  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
+        instance_num = 2  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
         instance_name = 'inst_#' + str(instance_num)
         data = load_json_instance('./instances', instance_name + '.json')
         inst_data = data['inst_data']
@@ -589,7 +592,7 @@ if __name__ == '__main__':
 
 
 
-    test_all_inst = True
+    test_all_inst = False
     if test_all_inst:
         test_realistic_inst = False
         results = []
@@ -606,15 +609,15 @@ if __name__ == '__main__':
 
             if NC == 15:
                 SP_time_limit = 25
-                OP_time_limit = 100
+                OP_time_limit = 200
             elif NC == 25:
                 SP_time_limit = 35
-                OP_time_limit = 60 # 400
+                OP_time_limit = 400
             else:
                 SP_time_limit = 50
                 OP_time_limit = 800
 
-            maxit = 4
+            maxit = 10
 
             inst_results, inst_OP_gap_results, inst_OP_obj_evolution_results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
 

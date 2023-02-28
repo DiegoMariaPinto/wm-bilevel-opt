@@ -263,8 +263,8 @@ if __name__ == '__main__':
 
         NF = len(facilities)
         NC = len(clients)
-        ND = 8
-        NV = 12
+        ND = 10
+        NV = 60
 
         depots = REMIND_facilities.sample(n=ND, random_state=random_state)
         depots['node_type'] = 'depot'
@@ -296,7 +296,7 @@ if __name__ == '__main__':
         # NV number of vehicles
 
         # sets dimensions are (NF [number of facilities], NC [number of clients], ND [number of depots], NV [number of vehicles])
-        sets_dimension_list = [(5,15,2,4), (10,25,5,10), (15,40,8,12)]
+        sets_dimension_list = [(5,15,2,10), (10,25,5,20), (15,40,8,30)]
 
         instance_num = 5
 
@@ -323,7 +323,7 @@ if __name__ == '__main__':
 
     # help(folium.Icon)
 
-    display_map = True
+    display_map = False
     if display_map:
         instance_name = 'inst_realistic'
         instance_data = load_json_instance('./instances', instance_name + '.json')

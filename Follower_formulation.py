@@ -29,6 +29,7 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     P = OP_params['P']
     M = OP_params['M']
     a_matrix = OP_params['a_matrix']
+    u = OP_params['u']
 
     SP_params = params['SP_params']
     H = SP_params['H']
@@ -53,6 +54,9 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     v = {(l,j): m.addVar(lb=0, vtype=GRB.CONTINUOUS, name='v({},{})'.format(l,j))
          for l in V for j in F}
 
+    e = {(l, i): m.addVar(lb=0, vtype=GRB.CONTINUOUS, name='e({},{})'.format(l, i))
+         for l in V for i in C}
+
     ####################################################################################################
     ############## rho variable for splitting node demand across many trucks ###########################
     ####################################################################################################
@@ -75,8 +79,10 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     for l in V:
         m.addConstr(quicksum(h[l, j] for j in F) == 1, name='C_12_onefacility({})'.format(l))
     # (13)
+    #for i in C:
+     #   m.addConstr(quicksum(h[l, i] for l in V) == 1, name='C_13_one_vehicle_for_node({})'.format(i))
     for i in C:
-        m.addConstr(quicksum(h[l, i] for l in V) == 1, name='C_13_one_vehicle_for_node({})'.format(i))
+        m.addConstr(quicksum(e[l,i] for l in V)==d[i], name='C_13_vehicles_for_node({})'.format(i))
     # 14) no loop over same node constraint:
     for l in V:
         for i in N:
@@ -113,8 +119,10 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
                             name='C_20_toclient_from_clientORdeposit_({},{})'.format(l, a))
 
     # (21)
+    #for l in V:
+     #   m.addConstr(quicksum(h[l,i]*d[i] for i in C) <= cv[l], name='C_21_capacity_vehicle({})'.format(l))
     for l in V:
-        m.addConstr(quicksum(h[l,i]*d[i] for i in C) <= cv[l], name='C_21_capacity_vehicle({})'.format(l))
+        m.addConstr(quicksum(e[l,i] for i in C) <= cv[l], name='C_21_capacity_vehicle({})'.format(l))
     # 22) calcolo del tempo di arrivo al nodo b se e solo se arriviamo a b da a (logical constraint)
     for l in V:
         for a in D + C:
@@ -132,10 +140,21 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
         m.addConstr(quicksum(p[l, j] for j in F) <= T[l], name='C_25_tempo_fine({})'.format(l))
 
     # (26)
+    #for l in V:
+    #    for j in F:
+    #        m.addConstr((h[l, j] == 1) >> (quicksum(h[l, i] * d[i] for i in C) == v[l, j]),
+    #                        name='C_26_load_of_l_to_j({},{})'.format(l, j))
+    for l in V:
+        for i in C:
+            m.addConstr(e[l,i]<=M*h[l,i], name='C_bonus_carico_solo_se_visito({},{})'.format(l,i))
+    for l in V:
+        for i in C:
+            m.addConstr(e[l,i]>=0.1*d[i]*h[l,i], name='C_bonus_carico_solo_se_visito({},{})'.format(l,i))
     for l in V:
         for j in F:
-            m.addConstr((h[l, j] == 1) >> (quicksum(h[l, i] * d[i] for i in C) == v[l, j]),
+            m.addConstr((h[l,j]==1)>>(quicksum(e[l,i] for i in C) == v[l, j]),
                             name='C_26_load_of_l_to_j({},{})'.format(l, j))
+
     # (27)
     for j in F:
         m.addConstr(quicksum(v[l, j] for l in V) <= quicksum(r[j, h, s] * capf[j, h] for h in H for s in S),
@@ -151,6 +170,15 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
     #     m.addConstr(w >= quicksum(z[l, a, b] * t[a, b] for a in D + C for b in C + F), name='C_fo_({})')
 
     m.addConstr(w >= quicksum(z[l, a, b] * t[a, b] for a in D + C for b in C + F for l in V), name='C_fo_({})')
+
+    #m.addConstrs(h[l,i]+h[r,i]<=a[l,k]+a[r,k] for i in C for k in D for l in V for r in V if r!=l)
+
+    for l in V:
+        for r in V:
+            if r!=l:
+                for i in C:
+                    for k in D:
+                        m.addConstr((h[l,k]==1)>>(h[l,i]+h[r,i]<=a_matrix[k,l]+a_matrix[k,r]))
 
 
 
@@ -271,6 +299,7 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
         z_opt_dict = {}
         p_opt_dict = {}
         v_opt_dict = {}
+        e_opt_dict = {}
 
         for var in m.getVars():
             vars_opt.append([var.VarName, var.x])
@@ -282,6 +311,8 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
                 p_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
             elif var.VarName.startswith('v'):
                 v_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
+            elif var.VarName.startswith('e'):
+                e_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
 
         vars_opt = pd.DataFrame.from_records(vars_opt, columns=["variable", "value"])
 
@@ -289,14 +320,16 @@ def OP_model(params, SP_vars, gap_tol, time_limit):
         z_opt = vars_opt[vars_opt['variable'].str.contains("z", na=False)]
         p_opt = vars_opt[vars_opt['variable'].str.contains("p", na=False)]
         v_opt = vars_opt[vars_opt['variable'].str.contains("v", na=False)]
+        e_opt = vars_opt[vars_opt['variable'].str.contains("e", na=False)]
 
         h_opt['value'].apply(pd.to_numeric)
         z_opt['value'].apply(pd.to_numeric)
         p_opt['value'].apply(pd.to_numeric)
         v_opt['value'].apply(pd.to_numeric)
+        e_opt['value'].apply(pd.to_numeric)
 
-        df_vars_list = [h_opt, z_opt, p_opt, v_opt]
+        df_vars_list = [h_opt, z_opt, p_opt, v_opt, e_opt]
 
-        opt_vars = {'h': h_opt_dict, 'z': z_opt_dict, 'p': p_opt_dict, 'v': v_opt_dict}
+        opt_vars = {'h': h_opt_dict, 'z': z_opt_dict, 'p': p_opt_dict, 'v': v_opt_dict, 'e':e_opt_dict}
 
         return opt_vars, df_vars_list, Gap, optObjVal
