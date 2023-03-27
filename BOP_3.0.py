@@ -550,7 +550,6 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
 
     return results, OP_gap_results, OP_obj_evolution_results
 
-
 if __name__ == '__main__':
 
     test_realistic_inst = True
@@ -565,7 +564,6 @@ if __name__ == '__main__':
         maxit = 10
 
         results, OP_gap_results, OP_obj_evolution_results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
-
 
     test_one_inst = False
     if test_one_inst:
@@ -589,7 +587,6 @@ if __name__ == '__main__':
         maxit = 10
 
         results, OP_gap_results, OP_obj_evolution_results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
-
 
 
     test_all_inst = False
