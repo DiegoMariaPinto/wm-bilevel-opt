@@ -227,7 +227,7 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
     inst_data = data['inst_data']
     disdur = data['disdur_dict']
 
-    gap_tol = 0.0025  # 1e-5
+    gap_tol = 0.05  # 1e-5
 
     NF = inst_data['NF']
     NC = inst_data['NC']
@@ -474,6 +474,10 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
                     v_opt.columns = ['l', 'j', 'value']
                     v_opt.to_excel('v_optimal_vars_follower.xlsx')
 
+                    e_opt = pd.Series(OP_opt_vars['e']).reset_index()
+                    e_opt.columns = ['l', 'i', 'value']
+                    e_opt.to_excel('e_optimal_vars_follower.xlsx')
+
                     ##################################################
 
                     best_k = count
@@ -561,7 +565,7 @@ if __name__ == '__main__':
         inst_data = data['inst_data']
 
         SP_time_limit = 30
-        OP_time_limit = 1800
+        OP_time_limit = 10000
         maxit = 10
 
         results, OP_gap_results, OP_obj_evolution_results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
@@ -570,7 +574,7 @@ if __name__ == '__main__':
     test_one_inst = False
     if test_one_inst:
         test_realistic_inst = False
-        instance_num = 2  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
+        instance_num = 13  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
         instance_name = 'inst_#' + str(instance_num)
         data = load_json_instance('./instances', instance_name + '.json')
         inst_data = data['inst_data']
