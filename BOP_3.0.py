@@ -13,7 +13,7 @@ from Leader_formulation import SP_model
 from Follower_formulation import OP_model
 
 
-def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
+def create_params(NF,NC,ND,NV,gamma,disdur,test_realistic_inst):
 
     np.random.seed(0)
     random.seed((0))
@@ -105,8 +105,6 @@ def create_params(NF,NC,ND,NV,disdur,test_realistic_inst):
     OP_params = {'t': t, 'truck_em_coeff': truck_em_coeff, 'em_t':em_t, 'cv': cv, 'T': T, 'P':P, 'a_matrix': a_matrix, 'M': M, 'u':u}
     #########################
 
-    # gamma vector of gamma_1,2,3
-    gamma = {'1': 0.3, '2': 0.3, '3': 0.4}
 
     generic_params['d'] = d
     generic_params['gamma'] = gamma
@@ -221,13 +219,13 @@ def get_j_usage(open_list, j_load, capf):
     return j_usage
 
 
-def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst):
+def heuristic(instance_name, gamma, maxit, SP_time_limit, OP_time_limit, test_realistic_inst):
 
     data = load_json_instance('./instances', instance_name + '.json')
     inst_data = data['inst_data']
     disdur = data['disdur_dict']
 
-    gap_tol = 0.0025  # 1e-5
+    gap_tol = 0.05  # 1e-5
 
     NF = inst_data['NF']
     NC = inst_data['NC']
@@ -235,10 +233,11 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
     NV = inst_data['NV']
 
 
-    params = create_params(NF, NC, ND, NV, disdur, test_realistic_inst)
+    params = create_params(NF, NC, ND, NV, gamma, disdur, test_realistic_inst)
 
     F = params['generic_params']['F']
     N = params['generic_params']['N']
+    V = params['generic_params']['V']
 
     SP_params = params['SP_params']
     capf = SP_params['capf']
@@ -296,6 +295,19 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
     SP_obj_evolution[0] = SP_optval
     best_obj = SP_optval
 
+    #### get best SP obj decoposition ##################################################################
+    z = OP_opt_vars['z']
+    n = SP_opt_vars['n']
+    g = SP_opt_vars['g']
+    C = params['generic_params']['C']
+    P = params['OP_params']['P']
+    em_t = params['OP_params']['em_t']
+    em_f = params['SP_params']['em_f']
+    best_SP_obj_dict = {'1': quicksum(z[l, a, b] * em_t[a, b] for a in N for b in N for l in V).getValue() +
+                          quicksum(r[j, h, s] * em_f[j, h] for j in F for h in H for s in S).getValue(),
+                     '2': quicksum(n[j, h, s] * P[j] for j in F for h in H for s in S).getValue(),
+                     '3': quicksum(g[a, b, l, s] for a in C for b in C for l in V for s in S).getValue()}
+    ###################################################################################################
 
     print('first solution open facility list is : \n')
     print(open_list)
@@ -461,7 +473,6 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
                     #######################################################
 
                     #### follower vars #####################################
-
                     z_opt = pd.Series(OP_opt_vars['z']).reset_index()
                     z_opt.columns = ['l', 'a', 'b', 'value']
                     z_opt.to_excel('z_optimal_vars_leader.xlsx')
@@ -473,8 +484,22 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
                     v_opt = pd.Series(OP_opt_vars['v']).reset_index()
                     v_opt.columns = ['l', 'j', 'value']
                     v_opt.to_excel('v_optimal_vars_follower.xlsx')
-
                     ##################################################
+
+                    #### get best SP obj decoposition ##################################################################
+                    z = OP_opt_vars['z']
+                    n = SP_opt_vars['n']
+                    g = SP_opt_vars['g']
+                    C = params['generic_params']['C']
+                    P = params['OP_params']['P']
+                    em_t = params['OP_params']['em_t']
+                    em_f = params['SP_params']['em_f']
+                    best_SP_obj_dict = {
+                        '1': quicksum(z[l, a, b] * em_t[a, b] for a in N for b in N for l in V).getValue() +
+                             quicksum(r[j, h, s] * em_f[j, h] for j in F for h in H for s in S).getValue(),
+                        '2': quicksum(n[j, h, s] * P[j] for j in F for h in H for s in S).getValue(),
+                        '3': quicksum(g[a, b, l, s] for a in C for b in C for l in V for s in S).getValue()}
+                    ###################################################################################################
 
                     best_k = count
                     # update open list
@@ -548,13 +573,40 @@ def heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic
     print('trigger_1_tabu_list is: ' + str(trigger_1_tabu_list))
     print('trigger_2_tabu_list is: ' + str(trigger_2_tabu_list))
 
-    return results, OP_gap_results, OP_obj_evolution_results
+    return results, best_SP_obj_dict, OP_gap_results, OP_obj_evolution_results
 
 if __name__ == '__main__':
 
-    test_realistic_inst = True
-    if test_realistic_inst:
 
+    test_gamma_pareto_front = True
+    if test_gamma_pareto_front:
+        test_realistic_inst = True
+        gamma_vals = pd.read_excel('values_gamma.xlsx')
+        df_pareto = gamma_vals.copy()
+        df_pareto['gamma_1'] = None
+        df_pareto['gamma_2'] = None
+        df_pareto['gamma_3'] = None
+        for index, row in gamma_vals.iterrows():
+            gamma = {'1': row[1], '2': row[2], '3': row[3]}
+            instance_name = "inst_realistic"
+            data = load_json_instance('./instances', instance_name + '.json')
+            inst_data = data['inst_data']
+
+            SP_time_limit = 30
+            OP_time_limit = 1800
+            maxit = 10
+
+            results, best_SP_obj_dict, OP_gap_results, OP_obj_evolution_results = heuristic(instance_name, gamma, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
+            df_pareto.iloc[index,3] = best_SP_obj_dict['1']
+            df_pareto.iloc[index,4] = best_SP_obj_dict['2']
+            df_pareto.iloc[index,5] = best_SP_obj_dict['3']
+
+            df_pareto.to_excel('gamma_pareto_front.xlsx')
+        df_pareto.to_excel('gamma_pareto_front.xlsx')
+
+    test_realistic_inst = False
+    if test_realistic_inst:
+        gamma = {'1': 0.3, '2': 0.3, '3': 0.4}
         instance_name = "inst_realistic"
         data = load_json_instance('./instances', instance_name + '.json')
         inst_data = data['inst_data']
@@ -563,12 +615,13 @@ if __name__ == '__main__':
         OP_time_limit = 1800
         maxit = 10
 
-        results, OP_gap_results, OP_obj_evolution_results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
+        results, best_SP_obj_dict, OP_gap_results, OP_obj_evolution_results = heuristic(instance_name, gamma, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
 
     test_one_inst = False
     if test_one_inst:
         test_realistic_inst = False
-        instance_num = 2  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
+        gamma = {'1': 0.3, '2': 0.3, '3': 0.4}
+        instance_num = 6  # 2 Heursitic Iteration n. 1: facility to help list is EMPTY -- heuristic stops here
         instance_name = 'inst_#' + str(instance_num)
         data = load_json_instance('./instances', instance_name + '.json')
         inst_data = data['inst_data']
@@ -586,7 +639,7 @@ if __name__ == '__main__':
 
         maxit = 10
 
-        results, OP_gap_results, OP_obj_evolution_results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
+        results, best_SP_obj_dict, OP_gap_results, OP_obj_evolution_results = heuristic(instance_name, gamma, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
 
 
     test_all_inst = False
@@ -616,7 +669,7 @@ if __name__ == '__main__':
 
             maxit = 10
 
-            inst_results, inst_OP_gap_results, inst_OP_obj_evolution_results = heuristic(instance_name, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
+            inst_results, best_SP_obj_dict, inst_OP_gap_results, inst_OP_obj_evolution_results = heuristic(instance_name, gamma, maxit, SP_time_limit, OP_time_limit, test_realistic_inst)
 
             results.append(inst_results)
             OP_gap_results.append([instance_name]+inst_OP_gap_results)

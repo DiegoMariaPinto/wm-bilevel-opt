@@ -191,6 +191,7 @@ def SP_model(params, OP_vars, gap_tol, time_limit, get_first_sol_SP=False, SP_va
         y_opt_dict = {}
         n_opt_dict = {}
         q_opt_dict = {}
+        g_opt_dict = {}
         for var in m.getVars():
             vars_opt.append([var.VarName, var.x])
             if var.VarName.startswith('x'):
@@ -203,6 +204,8 @@ def SP_model(params, OP_vars, gap_tol, time_limit, get_first_sol_SP=False, SP_va
                 n_opt_dict[eval(var.VarName[2:-1])] = var.x
             elif var.VarName.startswith('q'):
                 q_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
+            elif var.VarName.startswith('g'):
+                g_opt_dict[eval(var.VarName[2:-1])] = round(var.x)
 
         vars_opt = pd.DataFrame.from_records(vars_opt, columns=["variable", "value"])
 
@@ -211,16 +214,18 @@ def SP_model(params, OP_vars, gap_tol, time_limit, get_first_sol_SP=False, SP_va
         y_opt = vars_opt[vars_opt['variable'].str.contains("y", na=False)]
         n_opt = vars_opt[vars_opt['variable'].str.contains("n", na=False)]
         q_opt = vars_opt[vars_opt['variable'].str.contains("q", na=False)]
-
+        g_opt = vars_opt[vars_opt['variable'].str.contains("g", na=False)]
 
         x_opt['value'].apply(pd.to_numeric)
         r_opt['value'].apply(pd.to_numeric)
         y_opt['value'].apply(pd.to_numeric)
         n_opt['value'].apply(pd.to_numeric)
         q_opt['value'].apply(pd.to_numeric)
+        g_opt['value'].apply(pd.to_numeric)
 
-        df_vars_list = [x_opt, r_opt, y_opt, n_opt, q_opt]
+        df_vars_list = [x_opt, r_opt, y_opt, n_opt, q_opt, g_opt]
 
-        opt_vars = {'x': x_opt_dict, 'r': r_opt_dict, 'y': y_opt_dict, 'n': n_opt_dict, 'q': q_opt_dict}
+        opt_vars = {'x': x_opt_dict, 'r': r_opt_dict, 'y': y_opt_dict, 'n': n_opt_dict, 'q': q_opt_dict, 'g': g_opt_dict}
 
         return opt_vars, optObjVal, df_vars_list
+
